@@ -1,6 +1,6 @@
 import { createBrowserRouter } from 'react-router';
-import { Root } from './components/Root';
-import { AuthScreen } from './components/AuthScreen';
+import { Root } from '../components/Root';
+import { AuthScreen } from '../pages/AuthScreen';
 
 export const router = createBrowserRouter([
   {
