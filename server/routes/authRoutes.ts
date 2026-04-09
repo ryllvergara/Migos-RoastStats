@@ -14,15 +14,15 @@ router.post("/login", async (req: Request, res: Response) => {
   const { data: user, error } = await supabase
     .from("users")
     .select("*")
-    .eq("userName", userName)
-    .eq("userRole", userRole)
+    .eq("user_name", userName)
+    .eq("user_role", userRole)
     .single();
 
   if (error || !user) {
     return res.status(401).json({ error: "Invalid credentials or role" });
   }
 
-  const match = await bcrypt.compare(userPin, user.userPin_hash);
+  const match = await bcrypt.compare(userPin, user.user_pin);
 
   if (!match) {
     return res.status(401).json({ error: "Invalid PIN code" });
@@ -31,9 +31,9 @@ router.post("/login", async (req: Request, res: Response) => {
   res.status(200).json({
     message: "Login successful",
     user: {
-      userId: user.userId,
-      userName: user.userName,
-      userRole: user.userRole
+      userId: user.id,
+      userName: user.user_name,
+      userRole: user.user_role
     }
   });
 });
@@ -53,9 +53,9 @@ router.post("/register", async (req: Request, res: Response) => {
       .from("users")
       .insert([
         { 
-          userName: userName.trim(), 
-          userRole: userRole.toLowerCase(), 
-          userPin_hash: hashedPin 
+          user_name: userName.trim(), 
+          user_role: userRole.toLowerCase(), 
+          user_pin: hashedPin 
         }
       ])
       .select();
