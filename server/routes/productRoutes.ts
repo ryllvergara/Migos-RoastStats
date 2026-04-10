@@ -8,7 +8,7 @@ router.get('/', async (req, res) => {
   const { data, error } = await supabase
     .from('products')
     .select('*')
-    .order('created_at', { ascending: true });
+    .order('product_name', { ascending: true });
 
   if (error) return res.status(500).json({ error: error.message });
   res.json(data);
@@ -48,7 +48,7 @@ router.delete('/:id', async (req, res) => {
   const { error } = await supabase.from('products').delete().eq('id', id);
 
   if (error) {
-    console.error("Database Error:", error);
+    console.error("Supabase Delete Error:", error);
     return res.status(500).json({ error: error.message });
   }
 
