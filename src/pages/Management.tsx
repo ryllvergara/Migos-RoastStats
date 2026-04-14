@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { MapPin, Plus, Edit2, Trash2, Users, Store, Loader2 } from 'lucide-react';
 import { Button } from '../components/ui/button';
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '../components/ui/dialog';
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogDescription } from '../components/ui/dialog';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '../components/ui/alert-dialog';
@@ -202,7 +202,11 @@ export function Management() {
       {/* Branch Dialog */}
       <Dialog open={isBranchDialogOpen} onOpenChange={setIsBranchDialogOpen}>
         <DialogContent>
-            <DialogHeader><DialogTitle>{editingBranch ? 'Edit' : 'Create'} Branch</DialogTitle></DialogHeader>
+            <DialogHeader><DialogTitle>{editingBranch ? 'Edit' : 'Create'} Branch</DialogTitle>
+            <DialogDescription>
+              Enter the details for your branch location.
+            </DialogDescription>
+            </DialogHeader>
             <div className="space-y-4 py-4">
                 <Label>Name</Label>
                 <Input value={branchFormData.name} onChange={e => setBranchFormData({...branchFormData, name: e.target.value})} />
@@ -217,7 +221,11 @@ export function Management() {
       {/* Staff Dialog */}
       <Dialog open={isStaffDialogOpen} onOpenChange={setIsStaffDialogOpen}>
         <DialogContent>
-            <DialogHeader><DialogTitle>{editingStaff ? 'Edit' : 'Create'} Staff</DialogTitle></DialogHeader>
+            <DialogHeader><DialogTitle>{editingStaff ? 'Edit' : 'Create'} Staff</DialogTitle>
+            <DialogDescription>
+              Update the profile and security settings for this employee.
+            </DialogDescription>
+            </DialogHeader>
             <div className="space-y-4 py-4">
                 <Label>Name</Label>
                 <Input value={staffFormData.name} onChange={e => setStaffFormData({...staffFormData, name: e.target.value})} />
