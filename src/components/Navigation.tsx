@@ -1,5 +1,5 @@
 import { Link, useLocation, useNavigate } from 'react-router';
-import { Flame, BarChart3, FileCheck, LogOut, Package } from 'lucide-react';
+import { Flame, BarChart3, FileCheck, LogOut, Package, Store } from 'lucide-react';
 
 export function Navigation() {
   const location = useLocation();
@@ -10,7 +10,8 @@ export function Navigation() {
   const links = [
     { path: '/pos', label: 'POS', icon: Flame, roles: ['employee'] },
     { path: '/dashboard', label: 'Dashboard', icon: BarChart3, roles: ['owner'] },
-    { path: '/products', label: 'Products', icon: Package, roles: ['owner'] },
+    { path: '/inventory', label: 'Inventory', icon: Package, roles: ['owner'] },
+    { path: '/management', label: 'Management', icon: Store, roles: ['owner'] },
     { path: '/audit', label: 'Audit', icon: FileCheck, roles: ['owner'] },
   ];
 
