@@ -10,6 +10,7 @@ interface SaleItem {
   price: number;
   timestamp: Date;
   recordedBy: string;
+  isGrilled: boolean;
 }
 
 interface Product {
@@ -27,7 +28,7 @@ const UI_COLORS = [
   { color: "bg-[#2196F3]", hover: "hover:bg-[#1976D2]" },
 ];
 
-const API_URL = "http://localhost:3000/api/products";
+const BASE_URL = `http://localhost:3000/api`;
 
 export function GrillSidePOS() {
   const [menuItems, setMenuItems] = useState<Product[]>([]);
@@ -36,29 +37,43 @@ export function GrillSidePOS() {
   const [totalRevenue, setTotalRevenue] = useState(0);
   const [loading, setLoading] = useState(true);
 
-  const employeeBranch = sessionStorage.getItem("employeeBranch");
-  const branchName = employeeBranch === "branch-a" ? "Branch A" : "Branch B";
+  const employeeBranchId = sessionStorage.getItem("activeBranchId");
+  const employeeId = sessionStorage.getItem("userId");
   const employeeName = sessionStorage.getItem("userName"); 
+  const branchName = sessionStorage.getItem("branchName");
 
-
-  const fetchMenuItems = async () => {
+  const syncBranchData = async (showLoader = false) => {
+    console.log("Syncing branch data for branch ID:", employeeBranchId);
+    if (!employeeBranchId) return; 
     try {
-      setLoading(true);
-      const res = await fetch(API_URL);
-      if (!res.ok) throw new Error("Failed to fetch menu");
-      const data = await res.json();
+      if (showLoader) setLoading(true);
+      const [prodRes, syncRes] = await Promise.all([
+        fetch(`${BASE_URL}/products`),
+        fetch(`${BASE_URL}/sync/${employeeBranchId}`)
+      ]);
 
-      setMenuItems(data);
+      if (!prodRes.ok || !syncRes.ok) throw new Error("Sync failed");
 
-      setGrillCount((prev) => {
-        const updatedCounts = { ...prev };
-        data.forEach((product: Product) => {
-          if (updatedCounts[product.id] === undefined) {
-            updatedCounts[product.id] = 0;
-          }
-        });
-        return updatedCounts;
-      });
+      const products = await prodRes.json();
+      const sync = await syncRes.json();
+
+      setMenuItems(products || []);
+      setTotalRevenue(sync.totalRevenue || 0);
+
+      setRecentSales(sync.history.map((s: any) => ({
+        id: s.id,
+        productId: s.product_id,
+        item: s.products?.product_name,
+        price: s.products?.product_price,
+        recordedBy: s.users?.user_name,
+        timestamp: new Date(s.created_at),
+        isGrilled: s.products?.is_grilled
+      })));
+
+      // Map grill inventory 
+      const counts: Record<string, number> = {};
+      sync.grillInventory.forEach((item: any) => counts[item.product_id] = item.current_count);
+      setGrillCount(counts);
     } catch (err) {
       console.error("Sync Error:", err);
     } finally {
@@ -66,56 +81,55 @@ export function GrillSidePOS() {
     }
   };
 
+  // Sync on load + every 5 seconds
   useEffect(() => {
-    fetchMenuItems();
-    const interval = setInterval(fetchMenuItems, 120000);
+    syncBranchData(true);
+    const interval = setInterval(() => syncBranchData(false), 5000);
     return () => clearInterval(interval);
   }, []);
 
-  const handleSale = (
-    itemName: string,
-    itemId: string,
-    price: number,
-    is_grilled: boolean,
-  ) => {
-    const newSale: SaleItem = {
-      id: Date.now().toString(),
-      productId: itemId,
-      item: itemName,
-      quantity: 1,
-      price: Number(price),
-      timestamp: new Date(),
-      recordedBy: employeeName || "Unknown",
-    };
-    if (is_grilled) {
-      setGrillCount((prev) => ({
-        ...prev,
-        [itemId]: Math.max(0, (prev[itemId] || 0) - 1),
-      }));
+  const handleSale = async (item: any) => {
+    if (item.is_grilled) {
+      setGrillCount(prev => ({ ...prev, [item.id]: Math.max(0, (prev[item.id] || 0) - 1) }));
     }
 
-    setRecentSales([newSale, ...recentSales.slice(0, 4)]);
-    setTotalRevenue((prev) => prev + Number(price));
+    try {
+      await fetch(`${BASE_URL}/sale`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          productId: item.id,
+          employeeId,
+          branchId: employeeBranchId,
+          isGrilled: item.is_grilled
+        }),
+      });
+      syncBranchData();
+    } catch (err) { console.error(err); }
   };
 
-  const handleUndo = (saleId: string, itemId: string, price: number) => {
-    setRecentSales(recentSales.filter((sale) => sale.id !== saleId));
-    setTotalRevenue((prev) => prev - Number(price));
-
-    const product = menuItems.find((p) => p.id === itemId);
-    if (product?.is_grilled) {
-      setGrillCount((prev) => ({
-        ...prev,
-        [itemId]: (prev[itemId] || 0) + 1,
-      }));
-    }
+  const handleUndo = async (sale: any) => {
+    setRecentSales(prev => prev.filter(s => s.id !== sale.id));
+    try {
+      await fetch(`${BASE_URL}/undo/${sale.id}`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ productId: sale.productId, branchId: employeeBranchId, isGrilled: sale.isGrilled })
+      });
+      syncBranchData();
+    } catch (err) { console.error(err); syncBranchData(); }
   };
 
-  const adjustGrill = (itemId: string, delta: number) => {
-    setGrillCount((prev) => ({
-      ...prev,
-      [itemId]: Math.max(0, (prev[itemId] || 0) + delta),
-    }));
+  const adjustGrill = async (productId: string, delta: number) => {
+    setGrillCount(prev => ({ ...prev, [productId]: Math.max(0, (prev[productId] || 0) + delta) }));
+    
+    try {
+      await fetch(`${BASE_URL}/grill-adjust`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ productId, branchId: employeeBranchId, delta }),
+      });
+    } catch (err) { console.error(err); }
   };
 
   return (
@@ -137,7 +151,7 @@ export function GrillSidePOS() {
         </div>
         <div className="flex items-center gap-4">
           <button
-            onClick={fetchMenuItems}
+            onClick={() => syncBranchData(true)}
             className="p-2 text-gray-400 hover:text-[#D32F2F] transition-colors"
             title="Sync Menu"
           >
@@ -213,7 +227,7 @@ export function GrillSidePOS() {
             <button
               key={item.id}
               disabled={isOutOfStock}
-              onClick={() => handleSale(item.product_name, item.id, item.product_price, item.is_grilled)}
+              onClick={() => handleSale(item)}
               className={`${design.color} ${design.hover} h-32 rounded-xl text-white shadow-md transition-all flex flex-col items-center justify-center p-2 ${isOutOfStock ? 'opacity-30 cursor-not-allowed grayscale' : 'active:scale-95'}`}
             >
               <p className="font-bold text-center leading-tight mb-1">{item.product_name}</p>
@@ -254,13 +268,13 @@ export function GrillSidePOS() {
                         hour: "2-digit",
                         minute: "2-digit",
                       })}{" "}
-                      • {employeeName}{" "}
+                      • {sale.recordedBy}{" "}
                       • ₱{Number(sale.price).toFixed(2)}
                     </p>
                   </div>
                 </div>
                 <button
-                  onClick={() => handleUndo(sale.id, sale.productId, sale.price)}
+                  onClick={() => handleUndo(sale)}
                   className="flex items-center gap-1 rounded-lg bg-white px-4 py-2 text-sm font-semibold text-gray-600 border border-gray-200 hover:bg-red-50 hover:text-[#D32F2F] hover:border-red-100 transition-all shadow-sm"
                 >
                   <Undo2 className="h-4 w-4" />
