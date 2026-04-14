@@ -3,6 +3,8 @@ import { Root } from '../components/Root';
 import { AuthScreen } from '../pages/AuthScreen';
 import { GrillSidePOS } from '../pages/POS';
 import { ProductsManager } from '../pages/ProductsManager';
+import { OwnerDashboard } from '../pages/OwnerDashboard';
+import { Management } from '../pages/Management';
 
 export const router = createBrowserRouter([
   {
@@ -14,7 +16,9 @@ export const router = createBrowserRouter([
     Component: Root,
     children: [
       { path: 'pos', Component: GrillSidePOS },
-      { path: 'products', Component: ProductsManager },
+      { path: 'dashboard', Component: OwnerDashboard },
+      { path: 'inventory', Component: ProductsManager },
+      { path: 'management', Component: Management },
     ],
   },
 ]);
