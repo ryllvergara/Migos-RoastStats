@@ -4,6 +4,7 @@ import authRoutes from "./routes/authRoutes";
 import productRoutes from "./routes/productRoutes";
 import posRoutes from "./routes/posRoutes";
 import managementRoutes from "./routes/managementRoutes";
+import dashboardRoutes from "./routes/dashboardRoutes"
 
 const app = express();
 
@@ -18,5 +19,6 @@ app.use("/api/auth", authRoutes);
 app.use("/api/products", productRoutes);
 app.use("/api", posRoutes);
 app.use("/api/management", managementRoutes);
+app.use("/api/dashboard", dashboardRoutes);
 
 export default app;
