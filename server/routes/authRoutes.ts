@@ -4,6 +4,15 @@ import bcrypt from "bcryptjs";
 
 const router = Router();
 
+router.get('/branches', async (req, res) => {
+  const { data, error } = await supabase
+    .from('branches')
+    .select('*')
+    .order('branch_name', { ascending: true });
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data);
+});
+
 router.post("/login", async (req: Request, res: Response) => {
   const { userName, userPin, userRole } = req.body;
 
