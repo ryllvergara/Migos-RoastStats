@@ -17,6 +17,9 @@ router.get('/', async (req, res) => {
 // POST new product
 router.post('/', async (req, res) => {
   const { product_name, product_price, is_grilled } = req.body;
+  if (!product_name || !product_price) {
+    return res.status(400).json({ error: "Missing fields" }); 
+  }
   const { data, error } = await supabase
     .from('products')
     .insert([{ product_name, product_price, is_grilled: is_grilled || false }])
@@ -38,6 +41,7 @@ router.patch('/:id', async (req, res) => {
     .select()
     .single();
 
+  if (!data) return res.status(404).json({ error: "Product not found" });
   if (error) return res.status(500).json({ error: error.message });
   res.json(data);
 });
