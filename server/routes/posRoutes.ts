@@ -58,15 +58,13 @@ router.post('/sale', async (req, res) => {
 
 // PATCH: Adjust Grill Count
 router.patch('/grill-adjust', async (req, res) => {
-  const productId = parseInt(req.body.productId);
-  const branchId = parseInt(req.body.branchId);
-  const delta = parseInt(req.body.delta);
-  try {
-    const { error } = await supabase.rpc('adjust_grill_count', {
-      p_product_id: productId,
-      p_branch_id: branchId,
-      p_delta: delta
-    });
+    const { productId, branchId, delta } = req.body;
+    try {
+      const { error } = await supabase.rpc('adjust_grill_count', {
+        p_product_id: Number(productId),
+        p_branch_id: Number(branchId),
+        p_delta: Number(delta)
+      });
     if (error) throw error;
     res.json({ success: true });
   } catch (err: any) {
