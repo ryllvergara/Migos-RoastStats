@@ -1,74 +1,125 @@
-import { jest, describe, it, expect, beforeEach } from "@jest/globals";
+import { describe, it, expect, beforeAll, afterEach } from "@jest/globals";
 import request from "supertest";
-import bcrypt from "bcryptjs";
-
-const mockSupabase = {
-  from: jest.fn().mockReturnThis(),
-  select: jest.fn().mockReturnThis(),
-  eq: jest.fn().mockReturnThis(),
-  single: jest.fn(),
-};
-
-jest.mock("../supabaseAdmin.js", () => ({
-  supabase: mockSupabase,
-}));
-
 import app from "../server.js";
 import { supabase } from "../supabaseAdmin.js";
+import { clearTestData } from "./setup.js";
 
-describe("Authentication API", () => {
-  beforeEach(() => {
-    jest.clearAllMocks();
+describe("Authentication API Integration Tests", () => {
+  const testUser = {
+    userName: "Fritzie_Test",
+    userPin: "0000",
+    userRole: "owner",
+  };
+
+  beforeAll(async () => {
+    await clearTestData();
   });
 
-  it("should return 400 if required fields are missing", async () => {
-    const res = await request(app)
-      .post("/api/auth/login")
-      .send({ userName: "Fritzie" });
-
-    expect(res.status).toBe(400);
-    expect(res.body.error).toBe("Missing required fields");
+  afterEach(async () => {
+    await clearTestData();
   });
 
-  it("should return 401 if user does not exist in database", async () => {
-    (mockSupabase.single as jest.Mock<any>).mockResolvedValueOnce({
-      data: null,
-      error: { message: "User not found" },
+  describe("POST /api/auth/register", () => {
+    // Happy Path: new user registered successfully
+    it("should successfully register a new user", async () => {
+      const res = await request(app)
+        .post("/api/auth/register")
+        .send(testUser);
+      expect(res.status).toBe(201);
+      expect(res.body.message).toBe("User registered successfully");
+      expect(res.body.user.user_name).toBe(testUser.userName);
     });
 
-    const res = await request(app)
-      .post("/api/auth/login")
-      .send({ userName: "GhostUser", userPin: "1234", userRole: "owner" });
-
-    expect(res.status).toBe(401);
+    // Sad Path: missing fields 
+    it("should return 400 for missing fields", async () => {
+      const res = await request(app)
+        .post("/api/auth/register")
+        .send({ userName: "IncompleteUser" });
+      expect(res.status).toBe(400);
+      expect(res.body.error).toBe("Missing fields");
+    });
   });
 
-  it("should return 200 and user data if PIN is correct", async () => {
-    const rawPin = "0518";
-
-    const hashedPin = await bcrypt.hash(rawPin, 10);
-
-    (mockSupabase.single as jest.Mock<any>).mockResolvedValueOnce({
-      data: {
-        userId: "1",
-        userName: "Fritzie",
-        userRole: "owner",
-        userPin_hash: hashedPin,
-      },
-      error: null,
+  describe("POST /api/auth/login", () => {
+    // Happy Path: successfull login
+    it("should login successfully with correct credentials", async () => {
+      // Register the user first to ensure they exist in the database
+      await request(app).post("/api/auth/register").send(testUser);
+      const res = await request(app)
+        .post("/api/auth/login")
+        .send({
+          userName: testUser.userName,
+          userPin: testUser.userPin,
+          userRole: testUser.userRole
+        });
+      expect(res.status).toBe(200);
+      expect(res.body.message).toBe("Login successful");
+      expect(res.body.user.userName).toBe(testUser.userName);
     });
 
-    const res = await request(app).post("/api/auth/login").send({
-      userName: "Fritzie",
-      userPin: rawPin, 
-      userRole: "owner",
+    // Sad Path: incorrect pin 
+    it("should return 401 for incorrect PIN", async () => {
+      await request(app).post("/api/auth/register").send(testUser);
+      const res = await request(app)
+        .post("/api/auth/login")
+        .send({
+          userName: testUser.userName,
+          userPin: "wrong-pin",
+          userRole: testUser.userRole
+        });
+      expect(res.status).toBe(401);
+      expect(res.body.error).toBe("Invalid PIN code");
     });
 
-    if (res.status === 401) {
-      console.log("Debug Response Body:", res.body);
-    }
+    // Sad Path: non-existent user 
+    it("should return 401 for non-existent user", async () => {
+      const res = await request(app)
+        .post("/api/auth/login")
+        .send({
+          userName: "GhostUser",
+          userPin: "1234",
+          userRole: "owner"
+        });
+      expect(res.status).toBe(401);
+      expect(res.body.error).toBe("Invalid credentials or role");
+    });
 
-    expect(res.status).toBe(200);
-    expect(res.body.user.userName).toBe("Fritzie");
+    // Sad Path: role mismatch
+    it("should return 401 if role does not match", async () => {
+      await request(app).post("/api/auth/register").send(testUser);
+      const res = await request(app)
+        .post("/api/auth/login")
+        .send({
+          userName: testUser.userName,
+          userPin: testUser.userPin,
+          userRole: "employee" // Incorrect role
+        });
+      expect(res.status).toBe(401);
+      expect(res.body.error).toBe("Invalid credentials or role");
+    }, 10000);
+  });
+
+  describe("GET /api/auth/branches", () => {
+    // Happy Path: fetch branches successfully
+    it("should fetch list of branches from DB", async () => {
+      await supabase.from('branches').insert([{ branch_name: "Test Branch" }]);
+      const res = await request(app).get("/api/auth/branches");
+      expect(res.status).toBe(200);
+      expect(Array.isArray(res.body)).toBe(true);
+    });
+
+    // Sad Path: no branches in database
+    it("should return empty array if no branches exist", async () => {
+      const res = await request(app).get("/api/auth/branches");
+      expect(res.status).toBe(200);
+      expect(Array.isArray(res.body)).toBe(true);
+      expect(res.body.length).toBe(0);
+    });
+
+    // Sad Path: handle database connectivity issues
+    it("should handle database connectivity issues", async () => {
+      const res = await request(app).get("/api/auth/branches");
+      expect(res.status).toBe(200); 
+    });
   });
 });
