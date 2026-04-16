@@ -153,24 +153,6 @@ export function OwnerDashboard() {
                 )}
               </div>
             </div>
-
-            {/* Low Stock Alerts */}
-            {branch.lowStock.length > 0 && (
-              <div className="rounded-lg bg-yellow-50 border border-[#FFC107] p-4">
-                <div className="mb-2 flex items-center gap-2 text-[#212121]">
-                  <Package className="h-5 w-5" />
-                  <h3>Low Stock Items</h3>
-                </div>
-                <ul className="space-y-1">
-                  {branch.lowStock.map((item, idx) => (
-                    <li key={idx} className="flex items-center gap-2 text-gray-700">
-                      <div className="h-2 w-2 rounded-full bg-[#FFC107]"></div>
-                      <span>{item}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
           </div>
         ))}
       </div>
