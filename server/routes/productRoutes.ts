@@ -27,8 +27,8 @@ router.post('/', async (req, res) => {
   res.status(201).json(data);
 });
 
-// PUT update product
-router.put('/:id', async (req, res) => {
+// PATCH update product
+router.patch('/:id', async (req, res) => {
   const { id } = req.params;
   const { product_name, product_price, is_grilled } = req.body;
   const { data, error } = await supabase

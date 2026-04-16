@@ -92,7 +92,7 @@ export function ProductsManager() {
   const saveEdit = async (id: string) => {
     try {
       const res = await fetch(`${API_URL}/${id}`, {
-        method: "PUT",
+        method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           product_name: editForm.name,
