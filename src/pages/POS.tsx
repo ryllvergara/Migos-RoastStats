@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
-import { Undo2, AlertTriangle, Flame, Loader2, RefreshCw } from "lucide-react";
+import { Undo2, Flame, Loader2, RefreshCw, SaveAll } from "lucide-react";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import logoImage from "@/assets/logoImage.png";
 
 interface SaleItem {
@@ -120,6 +121,26 @@ export function GrillSidePOS() {
     } catch (err) { console.error(err); syncBranchData(); }
   };
 
+  const handleCloseShift = async () => {
+    setLoading(true);
+    try {
+      const res = await fetch(`${BASE_URL}/close-shift`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ branchId: employeeBranchId, employeeId }),
+      });
+
+      if (res.ok) {
+        alert("Shift closed! Sales archived for audit.");
+        syncBranchData(); 
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const adjustGrill = async (productId: string, delta: number) => {
     setGrillCount(prev => ({ ...prev, [productId]: Math.max(0, (prev[productId] || 0) + delta) }));
     
@@ -237,13 +258,34 @@ export function GrillSidePOS() {
         })}
       </div>
 
-      {/* Wastage Button */}
-      <button className="mb-6 w-full rounded-xl border-2 border-dashed border-gray-300 bg-transparent py-4 text-gray-500 hover:border-[#D32F2F] hover:text-[#D32F2F] transition-all group">
-        <div className="flex items-center justify-center gap-2">
-          <AlertTriangle className="h-5 w-5 group-hover:animate-pulse" />
-          <span className="font-semibold">Record Wastage / Spoilage</span>
-        </div>
-      </button>
+      {/* Close Shift */}
+      <AlertDialog>
+        <AlertDialogTrigger asChild>
+          <button className="mb-6 w-full rounded-xl border-2 border-dashed border-gray-300 bg-transparent py-4 text-gray-500 hover:border-[#D32F2F] hover:text-[#D32F2F] transition-all group">
+            <div className="flex items-center justify-center gap-2">
+              <SaveAll className="h-5 w-5 group-hover:animate-pulse" />
+              <span className="font-semibold">Close Shift & Submit for Audit</span>
+            </div>
+          </button>
+        </AlertDialogTrigger>
+        <AlertDialogContent className="rounded-2xl border-none shadow-2xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-[#212121]">Finalize Daily Sales?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will archive all current sales from <strong>{branchName}</strong> and notify the owner for audit. You won't be able to undo transactions after this.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="rounded-xl border-gray-200">Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleCloseShift}
+              className="rounded-xl bg-[#D32F2F] hover:bg-[#B71C1C] text-white"
+            >
+              Confirm Close Shift
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Recent Sales */}
       <div className="rounded-xl bg-white p-5 shadow-sm border border-gray-100">
