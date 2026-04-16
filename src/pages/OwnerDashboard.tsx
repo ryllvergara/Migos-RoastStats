@@ -174,19 +174,6 @@ export function OwnerDashboard() {
           </div>
         ))}
       </div>
-
-      {/* Quick Actions
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <button className="rounded-lg bg-[#212121] py-4 text-white hover:bg-[#424242] transition-colors">
-          View Detailed Reports
-        </button>
-        <button className="rounded-lg bg-[#FFC107] py-4 text-[#212121] hover:bg-[#FFA000] transition-colors">
-          Inventory Management
-        </button>
-        <button className="rounded-lg border-2 border-[#D32F2F] bg-white py-4 text-[#D32F2F] hover:bg-gray-50 transition-colors">
-          Contact Branches
-        </button>
-      </div> */}
     </div>
   );
 }
