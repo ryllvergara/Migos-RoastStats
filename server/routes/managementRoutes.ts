@@ -35,6 +35,9 @@ router.patch('/branches/:id', async (req, res) => {
     .eq('id', id)
     .select();
   if (error) return res.status(500).json({ error: error.message });
+  if (!data || data.length === 0) {
+    return res.status(404).json({ error: "Branch not found" });
+  }
   res.json(data[0]);
 });
 // Delete branch
@@ -78,6 +81,9 @@ router.patch('/users/:id', async (req, res) => {
     .eq('id', id)
     .select();
   if (error) throw error;
+  if (!data || data.length === 0) {
+    return res.status(404).json({ error: "User not found" });
+  }
   res.json(data[0]);
 } catch (err: any) {
   res.status(500).json({ error: err.message });
