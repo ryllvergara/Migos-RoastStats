@@ -24,9 +24,6 @@ interface Product {
 const UI_COLORS = [
   { color: "bg-[#D32F2F]", hover: "hover:bg-[#B71C1C]" },
   { color: "bg-[#212121]", hover: "hover:bg-[#424242]" },
-  { color: "bg-[#FFC107]", hover: "hover:bg-[#FFA000]" },
-  { color: "bg-[#4CAF50]", hover: "hover:bg-[#388E3C]" },
-  { color: "bg-[#2196F3]", hover: "hover:bg-[#1976D2]" },
 ];
 
 const BASE_URL = `http://localhost:3000/api`;
