@@ -7,6 +7,7 @@ import { Label } from '../components/ui/label';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '../components/ui/alert-dialog';
 import { RegisterModal } from '@/components/RegisterModal';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
+import logoImage from '@/assets/logoImage.png';
 
 const BASE_URL = `http://localhost:3000/api/management`;
 
@@ -140,10 +141,22 @@ export function Management() {
 
   return (
     <div className="min-h-screen bg-gray-50 p-4 md:p-6">
-       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-[#212121]">Management</h1>
+       {/* Header */}
+      <div className="mb-6 flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <img
+            src={logoImage}
+            alt="Migo's Lechon"
+            className="h-16 w-16 rounded-full"
+          />
+          <div>
+            <h1 className="text-2xl font-bold text-[#212121]">
+              Management
+            </h1>
+            <p className="text-gray-600 font-medium">Manage branch and staff information</p>
+          </div>
+        </div>
       </div>
-
       <div className="mb-6 flex gap-4">
         <Button 
             variant={managementTab === 'branches' ? 'default' : 'outline'}

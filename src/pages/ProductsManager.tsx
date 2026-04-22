@@ -156,7 +156,7 @@ export function ProductsManager() {
             <h1 className="text-2xl font-bold text-[#212121]">
               Products & Pricing
             </h1>
-            <p className="text-gray-600">Manage branch menu items</p>
+            <p className="text-gray-600 font-medium">Manage branch menu items</p>
           </div>
         </div>
         <button
