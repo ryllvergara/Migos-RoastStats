@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Clock, AlertCircle, Package, TrendingUp, Loader2 } from 'lucide-react';
+import { Clock, AlertCircle, TrendingUp, Loader2 } from 'lucide-react';
 import logoImage from '@/assets/logoImage.png';
 
 const BASE_URL = `http://localhost:3000/api/dashboard`;
@@ -9,6 +9,11 @@ interface GrillingProduct {
   current_count: number;
 }
 
+interface RecentSale {
+  product_name: string;
+  created_at: Date;
+}
+
 interface BranchData {
   name: string;
   revenue: number;
@@ -16,6 +21,7 @@ interface BranchData {
   lastUpdate: Date;
   lowStock: string[];
   auditStatus: string;
+  recentSale?: RecentSale;
 }
 
 export function OwnerDashboard() {
@@ -29,7 +35,11 @@ export function OwnerDashboard() {
       const formattedData = data.map((b: any) => ({
         ...b,
         lastUpdate: new Date(b.lastUpdate),
-        grillingItems: b.grillStatus?.items || []
+        grillingItems: b.grillStatus?.items || [],
+        recentSale: b.latestSale ? {
+          product_name: b.latestSale.product_name,
+          created_at: new Date(b.latestSale.created_at)
+        } : undefined
       }));
       setBranches(formattedData);
     } catch (err) {
@@ -113,7 +123,7 @@ export function OwnerDashboard() {
                </div>
                <div className="text-right">
                   <p className="text-xs font-bold text-gray-400 uppercase tracking-tight">
-                    {branch.auditStatus === 'ready_for_audit' ? 'Final Revenue' : "Today's Revenue"}
+                    {branch.auditStatus === 'ready_for_audit' ? 'Final Revenue' : "Revenue"}
                   </p>
                   <p className={`text-xl font-black ${branch.auditStatus === 'ready_for_audit' ? 'text-emerald-600' : 'text-[#D32F2F]'}`}>
                     ₱{branch.revenue.toLocaleString()}
@@ -121,15 +131,39 @@ export function OwnerDashboard() {
                </div>
             </div>
 
-            {/* Inactivity Warning */}
-            {isInactive(branch.lastUpdate) && (
-              <div className="mb-4 rounded-lg bg-red-50 border border-[#D32F2F] p-3">
-                <div className="flex items-center gap-2 text-[#D32F2F]">
-                  <AlertCircle className="h-5 w-5" />
-                  <span>No updates in 2+ hours</span>
+            {/* Recent Sale or Inactivity Warning */}
+            <div className="mb-4">
+              {branch.recentSale && !isInactive(branch.recentSale.created_at) ? (
+                // Live Sale Notification
+                <div className="rounded-lg bg-amber-50 border border-[#FFC107] p-3 shadow-sm animate-in fade-in zoom-in duration-300">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 text-[#4A3728]">
+                      <div className="relative flex h-2 w-2">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
+                      </div>
+                      <span className="font-bold text-sm">
+                        {branch.recentSale.product_name} sold!
+                      </span>
+                    </div>
+                    <span className="text-sm font-bold text-amber-600 uppercase">
+                      {(branch.recentSale.created_at).toLocaleTimeString([], {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
+                    </span>
+                  </div>
                 </div>
-              </div>
-            )}
+              ) : isInactive(branch.lastUpdate) ? (
+                // Fallback: Inactivity Warning
+                <div className="rounded-lg bg-red-50 border border-[#D32F2F] p-3 animate-in fade-in slide-in-from-bottom-1">
+                  <div className="flex items-center gap-2 text-[#D32F2F]">
+                    <AlertCircle className="h-5 w-5" />
+                    <span className="font-medium text-sm">No activity recorded in 2+ hours</span>
+                  </div>
+                </div>
+              ) : null}
+            </div>
 
             {/* Grill Status */}
             <div className="mb-4 rounded-lg bg-gray-50 p-4">

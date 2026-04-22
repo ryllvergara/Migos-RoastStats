@@ -8,7 +8,8 @@ router.get('/overview', async (req, res) => {
   try {
     const { data: branches, error: bError } = await supabase
       .from('branches')
-      .select('id, branch_name, created_at, last_audit_status');   
+      .select('id, branch_name, created_at, last_audit_status')
+      .order('branch_name', { ascending: true });   
     if (bError) throw bError;
 
     const today = new Date();
@@ -18,37 +19,48 @@ router.get('/overview', async (req, res) => {
     const dashboardData = await Promise.all(branches.map(async (branch) => {
       let revenue = 0;
       let lastActivity: string | null = null;
+      let latestSale: any = null;
 
       // Calculate Revenue based on Audit Status
       if (branch.last_audit_status === 'ready_for_audit') {
         const { data: historySales } = await supabase
           .from('sales_history')
-          .select('sale_price, archived_at')
+          .select('product_name, sale_price, sold_at, archived_at')
           .eq('branch_id', branch.id)
-          .gte('sold_at', startOfToday);
+          .gte('sold_at', startOfToday)
+          .order('sold_at', { ascending: false });
 
         revenue = historySales?.reduce((sum, s) => sum + (Number(s.sale_price) || 0), 0) || 0;
         
-        // Use archived_at for last activity
-        lastActivity = historySales?.length 
-          ? historySales[historySales.length - 1].archived_at 
-          : null;
+        if (historySales && historySales.length > 0) {
+          latestSale = {
+            product_name: historySales[0].product_name,
+            created_at: historySales[0].sold_at
+          };
+          lastActivity = historySales[0].archived_at;
+        }
 
       } else {
         // For active branches, calculate revenue from live sales
         const { data: liveSales } = await supabase
           .from('sales')
-          .select(`created_at, products(product_price)`)
+          .select(`created_at, products(product_name, product_price)`)
           .eq('branch_id', branch.id)
-          .gte('created_at', startOfToday);
+          .gte('created_at', startOfToday)
+          .order('created_at', { ascending: false });
 
         revenue = liveSales?.reduce((sum, sale: any) => {
           return sum + (Number(sale.products?.product_price) || 0);
         }, 0) || 0;
 
-        lastActivity = liveSales?.length 
-          ? liveSales[liveSales.length - 1].created_at 
-          : null;
+        if (liveSales && liveSales.length > 0) {
+          const topSale: any = liveSales[0];
+          latestSale = {
+            product_name: topSale.products?.product_name,
+            created_at: topSale.created_at
+          };
+          lastActivity = topSale.created_at;
+        }
       }
 
       // Fetch Grill Status
@@ -88,6 +100,7 @@ router.get('/overview', async (req, res) => {
             current_count: Number(g.current_count || 0)
           })) || []
         },
+        latestSale: latestSale,
         lastUpdate: lastUpdate,
       };
     }));
