@@ -4,7 +4,7 @@ import { supabase } from '../supabaseAdmin.js';
 const router = Router();
 
 // GET all products
-router.get('/', async (req, res) => {
+router.get('/', async (_req, res) => {
   const { data, error } = await supabase
     .from('products')
     .select('*')
