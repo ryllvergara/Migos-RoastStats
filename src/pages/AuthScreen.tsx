@@ -49,7 +49,7 @@ export function AuthScreen() {
       const response = await fetch(`${baseUrl}/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userName, userPin, userRole }),
+        body: JSON.stringify({ userName, userPin, userRole, branchId: selectedBranch }),
       });
 
       const result = await response.json();
@@ -59,9 +59,11 @@ export function AuthScreen() {
       }
 
       sessionStorage.clear();
+      sessionStorage.setItem("token", result.token);
       sessionStorage.setItem("userId", result.user.userId);
       sessionStorage.setItem("userName", result.user.userName);
       sessionStorage.setItem("userRole", result.user.userRole);
+      sessionStorage.setItem("shiftId", result.user.shiftId || "");
 
       if (userRole === "employee" && selectedBranch) {
         const branchInfo = branches.find((b) => b.id === selectedBranch);
