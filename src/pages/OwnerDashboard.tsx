@@ -11,7 +11,7 @@ interface GrillingProduct {
 
 interface RecentSale {
   product_name: string;
-  created_at: Date;
+  sold_at: Date;
 }
 
 interface BranchData {
@@ -38,7 +38,7 @@ export function OwnerDashboard() {
         grillingItems: b.grillStatus?.items || [],
         recentSale: b.latestSale ? {
           product_name: b.latestSale.product_name,
-          created_at: new Date(b.latestSale.created_at)
+          sold_at: new Date(b.latestSale.sold_at)
         } : undefined
       }));
       setBranches(formattedData);
@@ -136,7 +136,7 @@ export function OwnerDashboard() {
 
             {/* Recent Sale or Inactivity Warning */}
             <div className="mb-4">
-              {branch.recentSale && !isInactive(branch.recentSale.created_at) ? (
+              {branch.recentSale && !isInactive(branch.recentSale.sold_at) ? (
                 // Live Sale Notification
                 <div className="rounded-lg bg-amber-50 border border-[#FFC107] p-3 shadow-sm animate-in fade-in zoom-in duration-300">
                   <div className="flex items-center justify-between">
@@ -150,7 +150,7 @@ export function OwnerDashboard() {
                       </span>
                     </div>
                     <span className="text-sm font-bold text-amber-600 uppercase">
-                      {(branch.recentSale.created_at).toLocaleTimeString([], {
+                      {(branch.recentSale.sold_at).toLocaleTimeString([], {
                         hour: "2-digit",
                         minute: "2-digit",
                       })}
