@@ -106,6 +106,7 @@ export function GrillSidePOS() {
         body: JSON.stringify({
           productId: item.id,
           employeeId,
+          productName: item.product_name,
           branchId: employeeBranchId,
           isGrilled: item.is_grilled
         }),

@@ -32,7 +32,7 @@ router.get('/sync/:branchId', async (req, res) => {
 
 // POST: Record Sale
 router.post('/sale', async (req, res) => {
-  const { productId, employeeId, branchId, isGrilled } = req.body;
+  const { productId, employeeId, productName, branchId, isGrilled } = req.body;
   if (!productId || !employeeId || !branchId) {
     return res.status(400).json({ error: 'Missing required fields: productId, employeeId, or branchId.' });
   }
@@ -53,7 +53,8 @@ router.post('/sale', async (req, res) => {
         product_id: productId, 
         employee_id: employeeId, 
         branch_id: branchId,
-        sold_price: inventory.branch_price 
+        sold_price: inventory.branch_price,
+        product_name_at_sale: productName
       }])
       .select().single();
     if (saleError) throw saleError;
