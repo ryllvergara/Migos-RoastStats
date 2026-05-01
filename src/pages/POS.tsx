@@ -26,7 +26,8 @@ const UI_COLORS = [
   { color: "bg-[#212121]", hover: "hover:bg-[#424242]" },
 ];
 
-const BASE_URL = `http://localhost:3000/api`;
+const PORT = import.meta.env.VITE_PORT;
+const BASE_URL = `http://localhost:${PORT}/api`;
 
 export function GrillSidePOS() {
   const [menuItems, setMenuItems] = useState<Product[]>([]);
@@ -46,23 +47,30 @@ export function GrillSidePOS() {
     try {
       if (showLoader) setLoading(true);
       const [prodRes, syncRes] = await Promise.all([
-        fetch(`${BASE_URL}/products`),
+        fetch(`${BASE_URL}/products/branch/${employeeBranchId}`),
         fetch(`${BASE_URL}/sync/${employeeBranchId}`)
       ]);
 
       if (!prodRes.ok || !syncRes.ok) throw new Error("Sync failed");
 
       const products = await prodRes.json();
+      const flatProducts = products.map((inv: any) => ({
+        id: inv.products.id,           
+        inventoryId: inv.id,           
+        product_name: inv.products.product_name,
+        product_price: inv.branch_price,
+        is_grilled: inv.products.is_grilled
+      }));
       const sync = await syncRes.json();
 
-      setMenuItems(products || []);
+      setMenuItems(flatProducts);
       setTotalRevenue(sync.totalRevenue || 0);
 
       setRecentSales(sync.history.map((s: any) => ({
         id: s.id,
         productId: s.product_id,
         item: s.products?.product_name,
-        price: s.products?.product_price,
+        price: s.sold_price,
         recordedBy: s.users?.user_name,
         timestamp: new Date(s.created_at),
         isGrilled: s.products?.is_grilled

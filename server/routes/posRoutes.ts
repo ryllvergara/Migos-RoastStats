@@ -12,12 +12,12 @@ router.get('/sync/:branchId', async (req, res) => {
   try {
     const { data: salesData, error: salesError } = await supabase
       .from('sales')
-      .select('*, products(product_name, product_price, is_grilled), users(user_name)')
+      .select('*, products(product_name, is_grilled), sold_price, users(user_name)')
       .eq('branch_id', branchId)
       .gte('created_at', startOfToday)
       .order('created_at', { ascending: false });
     if (salesError) throw salesError;
-    const totalRevenue = salesData?.reduce((sum, s: any) => sum + (s.products?.product_price || 0), 0) || 0;
+    const totalRevenue = salesData?.reduce((sum, s: any) => sum + (s.sold_price || 0), 0) || 0;
     const history = salesData?.slice(0, 5) || [];
     const { data: grillInventory, error: grillError } = await supabase
       .from('grill_count')
@@ -33,22 +33,45 @@ router.get('/sync/:branchId', async (req, res) => {
 // POST: Record Sale
 router.post('/sale', async (req, res) => {
   const { productId, employeeId, branchId, isGrilled } = req.body;
+  if (!productId || !employeeId || !branchId) {
+    return res.status(400).json({ error: 'Missing required fields: productId, employeeId, or branchId.' });
+  }
+
   try {
+    const { data: inventory, error: invError } = await supabase
+      .from('branch_inventory')
+      .select('branch_price, stock_quantity')
+      .match({ product_id: productId, branch_id: branchId })
+      .single();
+
+    if (invError || !inventory) throw new Error('Product not found in branch inventory');
+    if (inventory.stock_quantity <= 0) return res.status(400).json({ error: 'Out of stock!' });
+
     const { data: sale, error: saleError } = await supabase
       .from('sales')
       .insert([{ 
         product_id: productId, 
         employee_id: employeeId, 
-        branch_id: branchId 
+        branch_id: branchId,
+        sold_price: inventory.branch_price 
       }])
       .select().single();
     if (saleError) throw saleError;
+    
     if (isGrilled) {
-      await supabase.rpc('adjust_grill_count', {
+      const { error: grillError } = await supabase.rpc('adjust_grill_count', {
         p_product_id: productId,
         p_branch_id: branchId,
         p_delta: -1
       });
+      if (grillError) throw grillError;
+    } else {
+      const { error: stockError } = await supabase.rpc('adjust_branch_stocks', {
+        p_product_id: productId,
+        p_branch_id: branchId,
+        p_delta: -1
+      });
+      if (stockError) throw stockError;
     }
     res.status(201).json(sale);
   } catch (error: any) {
@@ -65,7 +88,15 @@ router.patch('/grill-adjust', async (req, res) => {
         p_branch_id: Number(branchId),
         p_delta: Number(delta)
       });
-    if (error) throw error;
+      if (error) throw error;
+
+      const { error: updateError } = await supabase.rpc('adjust_branch_stocks', {
+        p_product_id: Number(productId),
+        p_branch_id: Number(branchId),
+        p_delta: Number(-delta)
+      });
+      if (updateError) throw updateError;
+
     res.json({ success: true });
   } catch (err: any) {
     console.error("RPC Error:", err);
@@ -82,11 +113,19 @@ router.delete('/undo/:saleId', async (req, res) => {
     if (error) throw error;
 
     if (isGrilled) {
-      await supabase.rpc('adjust_grill_count', {
+      const { error: grillError } = await supabase.rpc('adjust_grill_count', {
         p_product_id: productId,
         p_branch_id: branchId,
         p_delta: 1
       });
+      if (grillError) throw grillError;
+    } else {
+      const { error: stockError } = await supabase.rpc('adjust_branch_stocks', {
+        p_product_id: productId,
+        p_branch_id: branchId,
+        p_delta: 1
+      });
+      if (stockError) throw stockError;
     }
     res.json({ success: true });
   } catch (error: any) {
@@ -98,28 +137,25 @@ router.delete('/undo/:saleId', async (req, res) => {
 router.post('/close-shift', async (req, res) => {
   const { branchId } = req.body;
   try {
-    // Fetch today's sales for the branch to archive in history
     const { data: currentSales, error: fetchError } = await supabase
       .from('sales')
-      .select(`*, products(product_price)`)
+      .select(`id, product_id, branch_id, employee_id, sold_price, created_at`)
       .eq('branch_id', branchId);
     if (fetchError) throw fetchError;
     if (!currentSales.length) return res.status(400).json({ message: "No sales to close." });
-    // Transform current sales into history data format
+
     const historyData = currentSales.map(s => ({
       sale_id: s.id,
       product_id: s.product_id,
       branch_id: s.branch_id,
       employee_id: s.employee_id,
-      sale_price: s.products.product_price,
+      sale_price: s.sold_price,
       sold_at: s.created_at
     }));
-    // Insert into sales_history and then delete from sales
     const { error: insertError } = await supabase.from('sales_history').insert(historyData);
     if (insertError) throw insertError;
     const { error: deleteError } = await supabase.from('sales').delete().eq('branch_id', branchId);
     if (deleteError) throw deleteError;
-    // Update branch status to indicate 'ready_for_audit'
     await supabase
       .from('branches')
       .update({ last_audit_status: 'ready_for_audit' })
