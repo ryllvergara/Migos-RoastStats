@@ -14,8 +14,8 @@ router.get('/sync/:branchId', async (req, res) => {
       .from('sales')
       .select('*, products(product_name, is_grilled), sold_price, users(user_name)')
       .eq('branch_id', branchId)
-      .gte('created_at', startOfToday)
-      .order('created_at', { ascending: false });
+      .gte('sold_at', startOfToday)
+      .order('sold_at', { ascending: false });
     if (salesError) throw salesError;
     const totalRevenue = salesData?.reduce((sum, s: any) => sum + (s.sold_price || 0), 0) || 0;
     const history = salesData?.slice(0, 5) || [];
@@ -137,26 +137,25 @@ router.delete('/undo/:saleId', async (req, res) => {
 // POST: Close Shift
 router.post('/close-shift', async (req, res) => {
   const { branchId } = req.body;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const startOfToday = today.toISOString();
   try {
     const { data: currentSales, error: fetchError } = await supabase
       .from('sales')
-      .select(`id, product_id, branch_id, employee_id, sold_price, created_at`)
-      .eq('branch_id', branchId);
+      .select(`id, product_id, branch_id, employee_id, sold_price, sold_at`)
+      .eq('branch_id', branchId)
+      .gte('sold_at', startOfToday);
     if (fetchError) throw fetchError;
     if (!currentSales.length) return res.status(400).json({ message: "No sales to close." });
 
-    const historyData = currentSales.map(s => ({
-      sale_id: s.id,
-      product_id: s.product_id,
-      branch_id: s.branch_id,
-      employee_id: s.employee_id,
-      sale_price: s.sold_price,
-      sold_at: s.created_at
-    }));
-    const { error: insertError } = await supabase.from('sales_history').insert(historyData);
-    if (insertError) throw insertError;
-    const { error: deleteError } = await supabase.from('sales').delete().eq('branch_id', branchId);
-    if (deleteError) throw deleteError;
+    const { error: updateError } = await supabase
+      .from('sales')
+      .update({ is_archived: true })
+      .eq('branch_id', branchId)
+      .gte('sold_at', startOfToday);
+    if (updateError) throw updateError;
+
     await supabase
       .from('branches')
       .update({ last_audit_status: 'ready_for_audit' })
