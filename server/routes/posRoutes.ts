@@ -136,7 +136,7 @@ router.delete('/undo/:saleId', async (req, res) => {
 
 // POST: Close Shift
 router.post('/close-shift', async (req, res) => {
-  const { branchId } = req.body;
+  const { branchId, employeeId } = req.body;
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const startOfToday = today.toISOString();
@@ -145,22 +145,37 @@ router.post('/close-shift', async (req, res) => {
       .from('sales')
       .select(`id, product_id, branch_id, employee_id, sold_price, sold_at`)
       .eq('branch_id', branchId)
+      .eq('is_archived', false)
       .gte('sold_at', startOfToday);
-    if (fetchError) throw fetchError;
-    if (!currentSales.length) return res.status(400).json({ message: "No sales to close." });
 
-    const { error: updateError } = await supabase
-      .from('sales')
-      .update({ is_archived: true })
-      .eq('branch_id', branchId)
-      .gte('sold_at', startOfToday);
-    if (updateError) throw updateError;
+    if (fetchError) throw fetchError;
+
+    if (currentSales.length > 0) {
+      await supabase
+        .from('sales')
+        .update({ is_archived: true })
+        .eq('branch_id', branchId)
+        .eq('is_archived', false);
+    }
 
     await supabase
       .from('branches')
       .update({ last_audit_status: 'ready_for_audit' })
       .eq('id', branchId);
-    res.json({ message: "Shift closed successfully. Owner notified." });
+
+    const { error: shiftError } = await supabase
+      .from('shifts')
+      .update({ clock_out_time: new Date().toISOString() })
+      .eq('branch_id', branchId)
+      .eq('employee_id', employeeId)
+      .is('clock_out_time', null);
+
+    if (shiftError) throw shiftError;
+
+    res.json({ 
+      message: "Shift closed and clocked out successfully.", 
+      shouldLogout: true,
+    });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }

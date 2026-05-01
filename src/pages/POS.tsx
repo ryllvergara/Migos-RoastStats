@@ -135,10 +135,16 @@ export function GrillSidePOS() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ branchId: employeeBranchId, employeeId }),
       });
+      
+      const data = await res.json();
 
       if (res.ok) {
         alert("Shift closed! Sales archived for audit.");
-        syncBranchData(); 
+        
+        if (data.shouldLogout) {
+          sessionStorage.clear(); 
+          window.location.href = "/";
+        }
       }
     } catch (err) {
       console.error(err);
