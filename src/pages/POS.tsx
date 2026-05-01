@@ -72,7 +72,7 @@ export function GrillSidePOS() {
         item: s.products?.product_name,
         price: s.sold_price,
         recordedBy: s.users?.user_name,
-        timestamp: new Date(s.created_at),
+        timestamp: new Date(s.sold_at),
         isGrilled: s.products?.is_grilled
       })));
 
@@ -135,7 +135,7 @@ export function GrillSidePOS() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ branchId: employeeBranchId, employeeId }),
       });
-      
+
       const data = await res.json();
 
       if (res.ok) {
