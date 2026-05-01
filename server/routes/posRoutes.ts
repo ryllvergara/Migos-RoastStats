@@ -143,7 +143,7 @@ router.post('/close-shift', async (req, res) => {
   try {
     const { data: currentSales, error: fetchError } = await supabase
       .from('sales')
-      .select(`id, product_id, branch_id, employee_id, sold_price, sold_at`)
+      .select(`id, product_id, branch_id, employee_id, product_name_at_sale, sold_price, sold_at`)
       .eq('branch_id', branchId)
       .eq('is_archived', false)
       .gte('sold_at', startOfToday);
@@ -158,6 +158,76 @@ router.post('/close-shift', async (req, res) => {
         .eq('is_archived', false);
     }
 
+    const { data: grillData, error: grillFetchError } = await supabase
+      .from('grill_count')
+      .select('product_id, current_count')
+      .eq('branch_id', branchId);
+
+    if (grillFetchError) throw grillFetchError;
+
+    const { data: activeShift, error: findShiftError } = await supabase
+      .from('shifts')
+      .select('id')
+      .eq('branch_id', branchId)
+      .eq('employee_id', employeeId)
+      .is('clock_out_time', null)
+      .single();
+
+    if (findShiftError) throw findShiftError;
+
+    const reportMap = new Map();
+
+  currentSales.forEach((sale: any) => {
+    const key = `${sale.product_id}-${sale.sold_price}`;
+    if (!reportMap.has(key)) {
+      reportMap.set(key, {
+        shift_id: activeShift.id,
+        branch_id: branchId,
+        product_id: sale.product_id,
+        product_name: sale.product_name_at_sale,
+        unit_price: sale.sold_price,
+        quantity_sold: 0,
+        product_revenue: 0,
+        quantity_wasted: 0 
+      });
+    }
+    const entry = reportMap.get(key);
+    entry.quantity_sold += 1;
+    entry.product_revenue += sale.sold_price;
+  });
+
+  grillData?.forEach((grillItem) => {
+    const matchingKey = Array.from(reportMap.keys()).find(k => k.startsWith(`${grillItem.product_id}-`));
+    
+    if (matchingKey) {
+      reportMap.get(matchingKey).quantity_wasted = grillItem.current_count;
+    } else if (grillItem.current_count > 0) {
+      reportMap.set(`waste-${grillItem.product_id}`, {
+        shift_id: activeShift.id,
+        branch_id: branchId,
+        product_id: grillItem.product_id,
+        product_name: "Unsold Grilled Item",
+        unit_price: 0, 
+        quantity_sold: 0,
+        product_revenue: 0,
+        quantity_wasted: grillItem.current_count
+      });
+    }
+  });
+
+    const finalReports = Array.from(reportMap.values());
+    if (finalReports.length > 0) {
+      const { error: reportError } = await supabase.from('sales_reports').insert(finalReports);
+      if (reportError) throw reportError;
+    }
+
+    const { error: resetError } = await supabase
+    .from('grill_count')
+    .update({ current_count: 0 })
+    .eq('branch_id', branchId);
+
+    if (resetError) throw resetError;
+
     await supabase
       .from('branches')
       .update({ last_audit_status: 'ready_for_audit' })
@@ -166,9 +236,7 @@ router.post('/close-shift', async (req, res) => {
     const { error: shiftError } = await supabase
       .from('shifts')
       .update({ clock_out_time: new Date().toISOString() })
-      .eq('branch_id', branchId)
-      .eq('employee_id', employeeId)
-      .is('clock_out_time', null);
+      .eq('id', activeShift.id);
 
     if (shiftError) throw shiftError;
 
