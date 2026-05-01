@@ -4,7 +4,7 @@ import { supabase } from '../supabaseAdmin';
 const router = express.Router();
 
 // GET: Dashboard Overview
-router.get('/overview', async (req, res) => {
+router.get('/overview', async (_req, res) => {
   try {
     const { data: branches, error: bError } = await supabase
       .from('branches')
@@ -44,13 +44,13 @@ router.get('/overview', async (req, res) => {
         // For active branches, calculate revenue from live sales
         const { data: liveSales } = await supabase
           .from('sales')
-          .select(`created_at, products(product_name, product_price)`)
+          .select(`created_at, products(product_name), sold_price`)
           .eq('branch_id', branch.id)
           .gte('created_at', startOfToday)
           .order('created_at', { ascending: false });
 
         revenue = liveSales?.reduce((sum, sale: any) => {
-          return sum + (Number(sale.products?.product_price) || 0);
+          return sum + (Number(sale.sold_price) || 0);
         }, 0) || 0;
 
         if (liveSales && liveSales.length > 0) {
