@@ -21,46 +21,23 @@ router.get('/overview', async (_req, res) => {
       let lastActivity: string | null = null;
       let latestSale: any = null;
 
-      // Calculate Revenue based on Audit Status
-      if (branch.last_audit_status === 'ready_for_audit') {
-        const { data: historySales } = await supabase
-          .from('sales_history')
-          .select('product_name, sale_price, sold_at, archived_at')
-          .eq('branch_id', branch.id)
-          .gte('sold_at', startOfToday)
-          .order('sold_at', { ascending: false });
+      const { data: sales, error: salesError } = await supabase
+        .from('sales')
+        .select('product_name_at_sale, sold_price, sold_at, is_archived, products(product_name)')
+        .eq('branch_id', branch.id)
+        .gte('sold_at', startOfToday)
+        .order('sold_at', { ascending: false });
+      if (salesError) throw salesError;
 
-        revenue = historySales?.reduce((sum, s) => sum + (Number(s.sale_price) || 0), 0) || 0;
-        
-        if (historySales && historySales.length > 0) {
-          latestSale = {
-            product_name: historySales[0].product_name,
-            created_at: historySales[0].sold_at
-          };
-          lastActivity = historySales[0].archived_at;
-        }
+      revenue = sales?.reduce((sum, s) => sum + (Number(s.sold_price) || 0), 0) || 0;
 
-      } else {
-        // For active branches, calculate revenue from live sales
-        const { data: liveSales } = await supabase
-          .from('sales')
-          .select(`created_at, products(product_name), sold_price`)
-          .eq('branch_id', branch.id)
-          .gte('created_at', startOfToday)
-          .order('created_at', { ascending: false });
-
-        revenue = liveSales?.reduce((sum, sale: any) => {
-          return sum + (Number(sale.sold_price) || 0);
-        }, 0) || 0;
-
-        if (liveSales && liveSales.length > 0) {
-          const topSale: any = liveSales[0];
-          latestSale = {
-            product_name: topSale.products?.product_name,
-            created_at: topSale.created_at
-          };
-          lastActivity = topSale.created_at;
-        }
+      const latestSaleData = sales?.[0];
+      if (latestSaleData) {
+        latestSale = {
+          product_name: latestSaleData.product_name_at_sale,
+          sold_at: latestSaleData.sold_at
+        };
+        lastActivity = latestSaleData.sold_at;
       }
 
       // Fetch Grill Status
