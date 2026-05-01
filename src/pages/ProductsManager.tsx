@@ -1,12 +1,22 @@
 import { useState, useEffect } from "react";
-import { Plus, Edit2, Trash2, Save, X, Loader2 } from "lucide-react";
+import { Package, Plus, Edit2, Save, X, Loader2 } from "lucide-react";
 import logoImage from "@/assets/logoImage.png";
 
-interface Product {
+interface InventoryItem {
+  id: string; 
+  branch_price: number;
+  stock_quantity: number;
+  product_id: string;
+  products: {
+    id: string;
+    product_name: string;
+    is_grilled: boolean;
+  };
+}
+
+interface Branch {
   id: string;
-  product_name: string;
-  product_price: number;
-  is_grilled: boolean;
+  branch_name: string;
 }
 
 const UI_COLORS = [
@@ -17,96 +27,108 @@ const UI_COLORS = [
   { color: "bg-[#2196F3]", hoverColor: "hover:bg-[#1976D2]" },
 ];
 
-const API_URL = "http://localhost:3000/api/products";
+const PORT = import.meta.env.VITE_PORT;
+const BASE_AUTH_URL = `http://localhost:${PORT}/api/auth`;
+const BASE_PRODUCT_URL = `http://localhost:${PORT}/api/products`;
 
 export function ProductsManager() {
-  const [products, setProducts] = useState<Product[]>([]);
+  const [selectedBranchId, setSelectedBranchId] = useState<string>("")
+  const [branches, setBranches] = useState<Branch[]>([]);
+  const [inventory, setInventory] = useState<InventoryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [isAdding, setIsAdding] = useState(false);
-  const [editForm, setEditForm] = useState({
-    name: "",
-    price: 0,
-    is_grilled: false,
-  });
+  const [editForm, setEditForm] = useState({ price: 0, stock: 0 });
   const [newProduct, setNewProduct] = useState({
     name: "",
     price: 0,
     is_grilled: false,
+    stock: 0
   });
 
   useEffect(() => {
-    fetchProducts();
+    const fetchBranches = async () => {
+      try {
+        const res = await fetch(`${BASE_AUTH_URL}/branches`);
+        const data = await res.json();
+        setBranches(data);
+      } catch (err) {
+        console.error("Failed to load branches:", err);
+      }
+    };
+    fetchBranches();
   }, []);
 
-  const fetchProducts = async () => {
+  const fetchBranchInventory = async (branchId: string) => {
+    if (!branchId) return;
+    setLoading(true);
     try {
-      setLoading(true);
-      const res = await fetch(API_URL);
-      if (!res.ok) throw new Error("Failed to fetch");
+      const res = await fetch(`${BASE_PRODUCT_URL}/branch/${branchId}`);
       const data = await res.json();
-      setProducts(data);
+      setInventory(data);
     } catch (err) {
-      console.error("Error loading products:", err);
+      console.error("Error loading inventory:", err);
     } finally {
       setLoading(false);
     }
   };
 
+  useEffect(() => {
+    fetchBranchInventory(selectedBranchId);
+  }, [selectedBranchId]);
+
   const addProduct = async () => {
-    if (!newProduct.name || newProduct.price <= 0) {
-      alert("Please enter a valid product name and price");
-      return;
-    }
+    if (!selectedBranchId) return alert("Please select a branch first");
+    if (!newProduct.name || newProduct.price <= 0) return alert("Invalid inputs");
 
     try {
-      const res = await fetch(API_URL, {
+      const res = await fetch(`${BASE_PRODUCT_URL}/branch-assign`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           product_name: newProduct.name,
-          product_price: newProduct.price,
+          branch_price: newProduct.price,
           is_grilled: newProduct.is_grilled,
+          branchId: selectedBranchId,
+          initial_stock: newProduct.stock
         }),
       });
 
       if (res.ok) {
-        await fetchProducts();
-        setNewProduct({ name: "", price: 0, is_grilled: false });
+        await fetchBranchInventory(selectedBranchId);
+        setNewProduct({ name: "", price: 0, is_grilled: false, stock: 0 });
         setIsAdding(false);
       }
     } catch (err) {
-      alert("Failed to save product to database.");
+      alert("Failed to save product.");
     }
   };
 
-  const startEdit = (product: Product) => {
-    setEditingId(product.id);
+  const startEdit = (item: InventoryItem) => {
+    setEditingId(item.id);
     setEditForm({
-      name: product.product_name,
-      price: product.product_price,
-      is_grilled: product.is_grilled,
+      price: item.branch_price,
+      stock: item.stock_quantity,
     });
   };
 
   const saveEdit = async (id: string) => {
     try {
-      const res = await fetch(`${API_URL}/${id}`, {
+      const res = await fetch(`${BASE_PRODUCT_URL}/inventory/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          product_name: editForm.name,
-          product_price: editForm.price,
-          is_grilled: editForm.is_grilled,
+          branch_price: editForm.price,
+          stock_quantity: editForm.stock,
         }),
       });
 
       if (res.ok) {
-        await fetchProducts();
+        await fetchBranchInventory(selectedBranchId);
         setEditingId(null);
       }
     } catch (err) {
-      alert("Failed to update product.");
+      alert("Failed to update inventory.");
     }
   };
 
@@ -122,7 +144,7 @@ export function ProductsManager() {
       return;
 
     try {
-      const res = await fetch(`${API_URL}/${id}`, {
+      const res = await fetch(`${BASE_PRODUCT_URL}/inventory/${id}`, {
         method: "DELETE",
         headers: {
           "Content-Type": "application/json",
@@ -131,7 +153,7 @@ export function ProductsManager() {
 
       if (res.ok) {
         console.log("Delete successful");
-        setProducts((prev) => prev.filter((p) => p.id !== id));
+        setInventory((prev) => prev.filter((item) => item.id !== id));
       } else {
         const errorData = await res.json();
         alert(`Delete failed: ${errorData.error || "Server error"}`);
@@ -145,235 +167,144 @@ export function ProductsManager() {
   return (
     <div className="min-h-screen bg-gray-50 p-4 md:p-6">
       {/* Header */}
-      <div className="mb-6 flex items-center justify-between">
+      <div className="mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex items-center gap-4">
-          <img
-            src={logoImage}
+          <img 
+            src={logoImage} 
             alt="Migo's Lechon"
-            className="h-16 w-16 rounded-full"
+             className="h-16 w-16 rounded-full" 
           />
           <div>
             <h1 className="text-2xl font-bold text-[#212121]">
-              Products & Pricing
+              Inventory & Pricing
             </h1>
             <p className="text-gray-600 font-medium">Manage branch menu items</p>
           </div>
         </div>
-        <button
-          onClick={() => setIsAdding(true)}
-          className="flex items-center gap-2 rounded-lg bg-[#D32F2F] px-6 py-3 text-white hover:bg-[#B71C1C] transition-colors shadow-md"
-        >
-          <Plus className="h-5 w-5" />
-          <span className="font-semibold">Add Product</span>
-        </button>
+
+        <div className="flex flex-wrap items-center gap-3">
+          <select 
+            value={selectedBranchId}
+            onChange={(e) => setSelectedBranchId(e.target.value)}
+            className="p-3 border-2 border-gray-200 rounded-xl focus:border-[#D32F2F] outline-none font-bold text-sm bg-white shadow-sm"
+          >
+            <option value="">Select Branch</option>
+            {branches.map(b => <option key={b.id} value={b.id}>{b.branch_name}</option>)}
+          </select>
+
+          <button
+            onClick={() => setIsAdding(true)}
+            disabled={!selectedBranchId}
+            className="flex items-center gap-2 rounded-xl bg-[#D32F2F] px-6 py-3 text-white hover:bg-[#B71C1C] disabled:opacity-50 transition-all shadow-md"
+          >
+            <Plus className="h-5 w-5" />
+            <span className="font-bold">Add Product</span>
+          </button>
+        </div>
       </div>
 
       {/* Add New Product Form */}
       {isAdding && (
-        <div className="mb-6 rounded-lg bg-white p-6 shadow-md border-2 border-[#D32F2F] animate-in fade-in slide-in-from-top-4">
-          <h2 className="text-lg font-bold text-[#212121] mb-4">
-            Add New Product
-          </h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-600 mb-2">
-                Product Name
-              </label>
-              <input
-                type="text"
-                value={newProduct.name}
-                onChange={(e) =>
-                  setNewProduct({ ...newProduct, name: e.target.value })
-                }
-                placeholder="e.g., Spicy Whole Manok"
-                className="w-full px-4 py-2 border-2 border-gray-200 rounded-lg focus:border-[#D32F2F] focus:outline-none"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-600 mb-2">
-                Price (₱)
-              </label>
-              <input
-                type="number"
-                value={newProduct.price || ""}
-                onChange={(e) =>
-                  setNewProduct({
-                    ...newProduct,
-                    price: parseFloat(e.target.value),
-                  })
-                }
-                placeholder="0.00"
-                className="w-full px-4 py-2 border-2 border-gray-200 rounded-lg focus:border-[#D32F2F] focus:outline-none"
-              />
-            </div>
-          </div>
-          <div className="flex items-center gap-2 mt-4">
+        <div className="mb-6 rounded-2xl bg-white p-6 shadow-xl border-2 border-[#D32F2F] animate-in fade-in slide-in-from-top-4">
+          <h2 className="text-lg font-black text-[#212121] mb-4 uppercase tracking-tight">Add to {branches.find(b => b.id === selectedBranchId)?.branch_name}</h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
             <input
-              type="checkbox"
-              id="is_grilled_new"
-              checked={newProduct.is_grilled}
-              onChange={(e) =>
-                setNewProduct({ ...newProduct, is_grilled: e.target.checked })
-              }
-              className="w-4 h-4 accent-[#D32F2F]"
+              type="text"
+              placeholder="Product Name"
+              className="p-3 border-2 rounded-xl"
+              value={newProduct.name}
+              onChange={(e) => setNewProduct({...newProduct, name: e.target.value})}
             />
-            <label
-              htmlFor="is_grilled_new"
-              className="text-sm font-medium text-gray-700"
-            >
+            <input
+              type="number"
+              value={newProduct.price || ""}
+              onChange={(e) => 
+                setNewProduct({
+                  ...newProduct, 
+                  price: parseFloat(e.target.value),
+                })
+              }
+              placeholder="Price (₱)"
+              className="p-3 border-2 rounded-xl"
+            />
+            <input
+              type="number"
+              placeholder="Initial Stock"
+              className="p-3 border-2 rounded-xl"
+              value={newProduct.stock || ""}
+              onChange={(e) => setNewProduct({...newProduct, stock: parseInt(e.target.value)})}
+            />
+          </div>
+          <div className="flex items-center gap-4 mb-4">
+            <label className="flex items-center gap-2 font-bold text-sm text-gray-600">
+              <input 
+                type="checkbox" 
+                className="w-5 h-5 accent-[#D32F2F]"
+                checked={newProduct.is_grilled}
+                onChange={(e) => setNewProduct({...newProduct, is_grilled: e.target.checked})}
+              />
               Requires Grilling
             </label>
           </div>
           <div className="flex gap-3">
-            <button
-              onClick={addProduct}
-              className="flex items-center gap-2 px-6 py-2 rounded-lg bg-[#D32F2F] text-white hover:bg-[#B71C1C]"
-            >
-              <Save className="h-4 w-4" />
-              <span>Save Product</span>
-            </button>
-            <button
-              onClick={() => {
-                setIsAdding(false);
-                setNewProduct({ name: "", price: 0, is_grilled: false });
-              }}
-              className="flex items-center gap-2 px-6 py-2 rounded-lg bg-gray-200 text-gray-700 hover:bg-gray-300"
-            >
-              <X className="h-4 w-4" />
-              <span>Cancel</span>
-            </button>
+            <button onClick={addProduct} className="bg-[#D32F2F] text-white px-6 py-2 rounded-xl font-bold hover:bg-[#B71C1C]">Save Product</button>
+            <button onClick={() => setIsAdding(false)} className="bg-gray-100 text-gray-500 px-6 py-2 rounded-xl font-bold">Cancel</button>
           </div>
         </div>
       )}
 
-      {/* Products List */}
-      <div className="rounded-lg bg-white p-6 shadow-md min-h-[400px]">
-        <h2 className="text-lg font-bold text-[#212121] mb-4">
-          Current Menu Items
-        </h2>
-
-        {loading ? (
+      <div className="rounded-2xl bg-white p-6 shadow-md min-h-[400px]">
+        {!selectedBranchId ? (
           <div className="flex flex-col items-center justify-center py-20 text-gray-400">
-            <Loader2 className="h-8 w-8 animate-spin mb-2" />
-            <p>Loading products from Supabase...</p>
+            <Package className="h-12 w-12 mb-2 opacity-20" />
+            <p className="font-bold uppercase tracking-widest text-xs">Select a branch to view inventory</p>
           </div>
+        ) : loading ? (
+          <div className="flex flex-col items-center justify-center py-20"><Loader2 className="animate-spin h-8 w-8 text-[#D32F2F]" /></div>
         ) : (
-          <div className="space-y-4">
-            {products.map((product, index) => {
+          <div className="grid grid-cols-1 gap-4">
+            {inventory.map((item, index) => {
               const colorSet = UI_COLORS[index % UI_COLORS.length];
               return (
-                <div
-                  key={product.id}
-                  className="flex items-center justify-between p-4 border-2 border-gray-200 rounded-lg hover:border-gray-300 transition-colors bg-white"
-                >
-                  {editingId === product.id ? (
-                    <>
-                      <div className="flex items-center gap-2 mt-2 col-span-full">
-                        <input
-                          type="checkbox"
-                          checked={editForm.is_grilled}
-                          onChange={(e) =>
-                            setEditForm({
-                              ...editForm,
-                              is_grilled: e.target.checked,
-                            })
-                          }
-                          className="w-4 h-4 accent-[#D32F2F]"
-                        />
-                        <span className="text-xs text-gray-500">
-                          Grilled Item
-                        </span>
-                      </div>
-                      <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-4 mr-4">
-                        <input
-                          type="text"
-                          value={editForm.name}
-                          onChange={(e) =>
-                            setEditForm({ ...editForm, name: e.target.value })
-                          }
-                          className="px-4 py-2 border-2 border-[#D32F2F] rounded-lg focus:outline-none"
-                        />
-                        <input
-                          type="number"
-                          value={editForm.price}
-                          onChange={(e) =>
-                            setEditForm({
-                              ...editForm,
-                              price: parseFloat(e.target.value),
-                            })
-                          }
-                          className="px-4 py-2 border-2 border-[#D32F2F] rounded-lg focus:outline-none"
-                        />
-                      </div>
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => saveEdit(product.id)}
-                          className="p-2 rounded-lg bg-[#4CAF50] text-white hover:bg-[#388E3C]"
-                          title="Save"
-                        >
-                          <Save className="h-5 w-5" />
-                        </button>
-                        <button
-                          onClick={() => setEditingId(null)}
-                          className="p-2 rounded-lg bg-gray-200 text-gray-700 hover:bg-gray-300"
-                          title="Cancel"
-                        >
-                          <X className="h-5 w-5" />
-                        </button>
-                      </div>
-                    </>
+                <div key={item.id} className="flex items-center justify-between p-4 border-2 border-gray-100 rounded-2xl hover:border-gray-200 bg-white shadow-sm">
+                  {editingId === item.id ? (
+                    <div className="flex-1 flex gap-4 items-center">
+                       <input 
+                         type="number" 
+                         value={editForm.price} 
+                         onChange={(e) => setEditForm({...editForm, price: parseFloat(e.target.value)})}
+                         className="border-2 border-[#D32F2F] rounded-lg p-2 w-32"
+                       />
+                       <input 
+                         type="number" 
+                         value={editForm.stock} 
+                         onChange={(e) => setEditForm({...editForm, stock: parseInt(e.target.value)})}
+                         className="border-2 border-[#D32F2F] rounded-lg p-2 w-32"
+                       />
+                       <button onClick={() => saveEdit(item.id)} className="bg-[#4CAF50] text-white p-2 rounded-lg"><Save /></button>
+                       <button onClick={() => setEditingId(null)} className="bg-gray-200 text-gray-500 p-2 rounded-lg"><X /></button>
+                    </div>
                   ) : (
                     <>
-                      <div className="flex items-center gap-4 flex-1">
-                        <div
-                          className={`w-3 h-12 rounded-full ${colorSet.color}`}
-                        />
+                      <div className="flex items-center gap-4">
+                        <div className={`w-1 h-10 rounded-full ${colorSet.color}`} />
                         <div>
-                          <p className="text-lg font-bold text-[#212121]">
-                            {product.product_name}
-                          </p>
-                          <p className="text-gray-600 font-medium">
-                            ₱{Number(product.product_price).toFixed(2)}
-                          </p>
+                          <p className="font-black text-[#212121] uppercase tracking-tight">{item.products.product_name}</p>
+                          <div className="flex gap-4">
+                            <p className="text-[#D32F2F] font-bold text-sm">₱{Number(item.branch_price).toFixed(2)}</p>
+                            <p className="text-gray-400 font-bold text-sm">STOCK: {item.stock_quantity}</p>
+                            {item.products.is_grilled && <span className="text-[10px] bg-orange-100 text-orange-600 px-2 py-0.5 rounded-full font-black uppercase">Grill Item</span>}
+                          </div>
                         </div>
                       </div>
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => startEdit(product)}
-                          className="p-2 rounded-lg bg-[#FFC107] text-white hover:bg-[#FFA000] transition-colors"
-                          title="Edit"
-                        >
-                          <Edit2 className="h-5 w-5" />
-                        </button>
-                        <button
-                          onClick={() => deleteProduct(product.id)}
-                          className="p-2 rounded-lg bg-gray-100 text-[#D32F2F] hover:bg-red-50 transition-colors"
-                          title="Delete"
-                        >
-                          <Trash2 className="h-5 w-5" />
-                        </button>
-                      </div>
+                      <button onClick={() => startEdit(item)} className="p-3 bg-gray-50 text-gray-400 hover:text-[#D32F2F] rounded-xl transition-all"><Edit2 className="h-5 w-5" /></button>
                     </>
                   )}
                 </div>
               );
             })}
-
-            {products.length === 0 && !loading && (
-              <div className="text-center py-20 border-2 border-dashed border-gray-200 rounded-xl">
-                <p className="text-gray-400">No products found in database.</p>
-              </div>
-            )}
           </div>
         )}
-      </div>
-
-      {/* Info Box */}
-      <div className="mt-6 rounded-lg bg-[#FFC107]/10 border-l-4 border-[#FFC107] p-4">
-        <p className="text-sm text-[#212121]">
-          <strong>Cloud Sync Active:</strong> Changes made here will immediately
-          reflect on all staff POS screens on all branches.
-        </p>
       </div>
     </div>
   );
