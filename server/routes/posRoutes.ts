@@ -175,6 +175,13 @@ router.post('/close-shift', async (req, res) => {
 
     if (findShiftError) throw findShiftError;
 
+    const { data: inventoryData, error: invError } = await supabase
+      .from('branch_inventory')
+      .select('product_id, stock_quantity')
+      .eq('branch_id', branchId);
+
+    if (invError) throw invError;
+
     const reportMap = new Map();
 
   currentSales.forEach((sale: any) => {
@@ -188,7 +195,8 @@ router.post('/close-shift', async (req, res) => {
         unit_price: sale.sold_price,
         quantity_sold: 0,
         product_revenue: 0,
-        quantity_wasted: 0 
+        quantity_wasted: 0 ,
+        stocks_remaining: 0
       });
     }
     const entry = reportMap.get(key);
@@ -196,24 +204,34 @@ router.post('/close-shift', async (req, res) => {
     entry.product_revenue += sale.sold_price;
   });
 
-  grillData?.forEach((grillItem) => {
-    const matchingKey = Array.from(reportMap.keys()).find(k => k.startsWith(`${grillItem.product_id}-`));
+  inventoryData?.forEach((invItem) => {
+    const matchingKey = Array.from(reportMap.keys()).find(k => k.startsWith(`${invItem.product_id}-`));
     
     if (matchingKey) {
-      reportMap.get(matchingKey).quantity_wasted = grillItem.current_count;
-    } else if (grillItem.current_count > 0) {
-      reportMap.set(`waste-${grillItem.product_id}`, {
+      const entry = reportMap.get(matchingKey);
+      entry.stocks_remaining = invItem.stock_quantity;
+    } else {
+      reportMap.set(`inv-${invItem.product_id}`, {
         shift_id: activeShift.id,
         branch_id: branchId,
-        product_id: grillItem.product_id,
-        product_name: "Unsold Grilled Item",
+        product_id: invItem.product_id,
+        product_name: "Inventory Snapshot (No Sales)", 
         unit_price: 0, 
         quantity_sold: 0,
         product_revenue: 0,
-        quantity_wasted: grillItem.current_count
+        quantity_wasted: 0,
+        stocks_remaining: invItem.stock_quantity
       });
     }
   });
+
+    grillData?.forEach((grillItem) => {
+      const matchingKey = Array.from(reportMap.keys()).find(k => k.startsWith(`${grillItem.product_id}-`));
+      
+      if (matchingKey) {
+        reportMap.get(matchingKey).quantity_wasted = grillItem.current_count;
+      }
+    });
 
     const finalReports = Array.from(reportMap.values());
     if (finalReports.length > 0) {
