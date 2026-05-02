@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react';
+import { AuditModal } from '../components/AuditModal';
 import { Clock, AlertCircle, TrendingUp, Loader2 } from 'lucide-react';
 import logoImage from '@/assets/logoImage.png';
 
-const BASE_URL = `http://localhost:3000/api/dashboard`;
+const PORT = import.meta.env.VITE_PORT;
+const BASE_URL = `http://localhost:${PORT}/api/dashboard`;
 
 interface GrillingProduct {
   product_name: string;
@@ -15,6 +17,7 @@ interface RecentSale {
 }
 
 interface BranchData {
+  id: string;
   name: string;
   revenue: number;
   grillingItems: GrillingProduct[];
@@ -27,6 +30,7 @@ interface BranchData {
 export function OwnerDashboard() {
   const [branches, setBranches] = useState<BranchData[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedAuditBranch, setSelectedAuditBranch] = useState<{ id: string; name: string } | null>(null);
 
   const fetchData = async () => {
     try {
@@ -73,6 +77,11 @@ export function OwnerDashboard() {
     return hours >= 2;
   };
 
+  const handleAuditComplete = () => {
+    fetchData(); 
+    setSelectedAuditBranch(null);
+  };
+
   if (loading) return (
     <div className="flex h-screen items-center justify-center">
       <Loader2 className="h-8 w-8 animate-spin text-[#D32F2F]" />
@@ -110,7 +119,10 @@ export function OwnerDashboard() {
                   </div>
                   <span className="text-sm font-bold">Ready for Evening Audit</span>
                 </div>
-                <button className="text-[10px] font-bold uppercase tracking-wider bg-emerald-600 text-white px-3 py-1 rounded-md hover:bg-emerald-700 transition-colors">
+                <button 
+                  className="text-[10px] font-bold uppercase tracking-wider bg-emerald-600 text-white px-3 py-1 rounded-md hover:bg-emerald-700 transition-colors"
+                  onClick={() => setSelectedAuditBranch({ id: branch.id, name: branch.name })}
+                >
                   Review Sales
                 </button>
               </div>
@@ -158,7 +170,7 @@ export function OwnerDashboard() {
                   </div>
                 </div>
               ) : isInactive(branch.lastUpdate) ? (
-                // Fallback: Inactivity Warning
+                // Inactivity Warning
                 <div className="rounded-lg bg-red-50 border border-[#D32F2F] p-3 animate-in fade-in slide-in-from-bottom-1">
                   <div className="flex items-center gap-2 text-[#D32F2F]">
                     <AlertCircle className="h-5 w-5" />
@@ -190,6 +202,14 @@ export function OwnerDashboard() {
                 )}
               </div>
             </div>
+            {selectedAuditBranch && (
+              <AuditModal
+                branchId={selectedAuditBranch.id}
+                branchName={selectedAuditBranch.name}
+                onClose={() => setSelectedAuditBranch(null)}
+                onFinalize={handleAuditComplete}
+              />
+            )}
           </div>
         ))}
       </div>
