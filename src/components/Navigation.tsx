@@ -1,5 +1,5 @@
 import { Link, useLocation, useNavigate } from 'react-router';
-import { Flame, BarChart3, FileCheck, LogOut, Package, Store, Loader2, } from 'lucide-react';
+import { Flame, BarChart3, FileCheck, LogOut, Package, Store, Loader2, ChartNoAxesCombined} from 'lucide-react';
 import { useState } from 'react';
 import { 
   AlertDialog, 
@@ -30,6 +30,7 @@ export function Navigation() {
     { path: '/inventory', label: 'Inventory', icon: Package, roles: ['owner'] },
     { path: '/management', label: 'Management', icon: Store, roles: ['owner'] },
     { path: '/audit', label: 'Audit', icon: FileCheck, roles: ['owner'] },
+    { path: '/analytics', label: 'Analytics', icon: ChartNoAxesCombined, roles: ['owner'] },
   ];
 
   const filteredLinks = links.filter(link => link.roles.includes(userRole || ''));
