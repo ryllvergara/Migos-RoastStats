@@ -82,7 +82,7 @@ router.post('/sale', async (req, res) => {
 
 // PATCH: Adjust Grill Count
 router.patch('/grill-adjust', async (req, res) => {
-    const { productId, branchId, delta } = req.body;
+  const { productId, branchId, delta } = req.body;
     try {
       const { error } = await supabase.rpc('adjust_grill_count', {
         p_product_id: Number(productId),
@@ -184,46 +184,46 @@ router.post('/close-shift', async (req, res) => {
 
     const reportMap = new Map();
 
-  currentSales.forEach((sale: any) => {
-    const key = `${sale.product_id}-${sale.sold_price}`;
-    if (!reportMap.has(key)) {
-      reportMap.set(key, {
-        shift_id: activeShift.id,
-        branch_id: branchId,
-        product_id: sale.product_id,
-        product_name: sale.product_name_at_sale,
-        unit_price: sale.sold_price,
-        quantity_sold: 0,
-        product_revenue: 0,
-        quantity_wasted: 0 ,
-        stocks_remaining: 0
-      });
-    }
-    const entry = reportMap.get(key);
-    entry.quantity_sold += 1;
-    entry.product_revenue += sale.sold_price;
-  });
+    currentSales.forEach((sale: any) => {
+      const key = `${sale.product_id}-${sale.sold_price}`;
+      if (!reportMap.has(key)) {
+        reportMap.set(key, {
+          shift_id: activeShift.id,
+          branch_id: branchId,
+          product_id: sale.product_id,
+          product_name: sale.product_name_at_sale,
+          unit_price: sale.sold_price,
+          quantity_sold: 0,
+          product_revenue: 0,
+          quantity_wasted: 0 ,
+          stocks_remaining: 0
+        });
+      }
+      const entry = reportMap.get(key);
+      entry.quantity_sold += 1;
+      entry.product_revenue += sale.sold_price;
+    });
 
-  inventoryData?.forEach((invItem) => {
-    const matchingKey = Array.from(reportMap.keys()).find(k => k.startsWith(`${invItem.product_id}-`));
+    inventoryData?.forEach((invItem) => {
+      const matchingKey = Array.from(reportMap.keys()).find(k => k.startsWith(`${invItem.product_id}-`));
     
-    if (matchingKey) {
-      const entry = reportMap.get(matchingKey);
-      entry.stocks_remaining = invItem.stock_quantity;
-    } else {
-      reportMap.set(`inv-${invItem.product_id}`, {
-        shift_id: activeShift.id,
-        branch_id: branchId,
-        product_id: invItem.product_id,
-        product_name: "Inventory Snapshot (No Sales)", 
-        unit_price: 0, 
-        quantity_sold: 0,
-        product_revenue: 0,
-        quantity_wasted: 0,
-        stocks_remaining: invItem.stock_quantity
-      });
-    }
-  });
+      if (matchingKey) {
+        const entry = reportMap.get(matchingKey);
+        entry.stocks_remaining = invItem.stock_quantity;
+      } else {
+        reportMap.set(`inv-${invItem.product_id}`, {
+          shift_id: activeShift.id,
+          branch_id: branchId,
+          product_id: invItem.product_id,
+          product_name: "Inventory Snapshot (No Sales)", 
+          unit_price: 0, 
+          quantity_sold: 0,
+          product_revenue: 0,
+          quantity_wasted: 0,
+          stocks_remaining: invItem.stock_quantity
+        });
+      }
+    });
 
     grillData?.forEach((grillItem) => {
       const matchingKey = Array.from(reportMap.keys()).find(k => k.startsWith(`${grillItem.product_id}-`));
