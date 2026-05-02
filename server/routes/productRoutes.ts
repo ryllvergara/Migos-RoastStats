@@ -18,7 +18,8 @@ router.get('/branch/:branchId', async (req, res) => {
         is_grilled
       )
     `)
-    .eq('branch_id', branchId);
+    .eq('branch_id', branchId)
+    .order('id', { ascending: true });
 
   if (error) return res.status(500).json({ error: error.message });
   res.json(data);
