@@ -150,14 +150,6 @@ router.post('/close-shift', async (req, res) => {
 
     if (fetchError) throw fetchError;
 
-    if (currentSales.length > 0) {
-      await supabase
-        .from('sales')
-        .update({ is_archived: true })
-        .eq('branch_id', branchId)
-        .eq('is_archived', false);
-    }
-
     const { data: grillData, error: grillFetchError } = await supabase
       .from('grill_count')
       .select('product_id, current_count')
@@ -171,14 +163,13 @@ router.post('/close-shift', async (req, res) => {
       .eq('branch_id', branchId)
       .eq('employee_id', employeeId)
       .is('clock_out_time', null)
-      .is('status', 'active')
       .single();
 
     if (findShiftError) throw findShiftError;
 
     const { data: inventoryData, error: invError } = await supabase
       .from('branch_inventory')
-      .select('product_id, stock_quantity')
+      .select(`product_id, stock_quantity, products(product_name)`)
       .eq('branch_id', branchId);
 
     if (invError) throw invError;
@@ -216,7 +207,7 @@ router.post('/close-shift', async (req, res) => {
           shift_id: activeShift.id,
           branch_id: branchId,
           product_id: invItem.product_id,
-          product_name: "Inventory Snapshot (No Sales)", 
+          product_name: invItem.products[0]?.product_name,
           unit_price: 0, 
           quantity_sold: 0,
           product_revenue: 0,
@@ -240,21 +231,31 @@ router.post('/close-shift', async (req, res) => {
       if (reportError) throw reportError;
     }
 
+    if (currentSales && currentSales.length > 0) {
+      await supabase
+        .from('sales')
+        .update({ is_archived: true })
+        .eq('branch_id', branchId)
+        .eq('is_archived', false);
+    }
+    
     const { error: resetError } = await supabase
-    .from('grill_count')
-    .update({ current_count: 0 })
-    .eq('branch_id', branchId);
+      .from('grill_count')
+      .update({ current_count: 0 })
+      .eq('branch_id', branchId);
 
     if (resetError) throw resetError;
 
-    await supabase
+    const { error: branchError } = await supabase
       .from('branches')
       .update({ last_audit_status: 'ready_for_audit' })
       .eq('id', branchId);
 
+    if (branchError) throw branchError;
+
     const { error: shiftError } = await supabase
       .from('shifts')
-      .update({ clock_out_time: new Date().toISOString(), status: 'closed' })
+      .update({ clock_out_time: new Date().toISOString()})
       .eq('id', activeShift.id);
 
     if (shiftError) throw shiftError;
