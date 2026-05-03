@@ -171,6 +171,7 @@ router.post('/close-shift', async (req, res) => {
       .eq('branch_id', branchId)
       .eq('employee_id', employeeId)
       .is('clock_out_time', null)
+      .is('status', 'active')
       .single();
 
     if (findShiftError) throw findShiftError;
@@ -253,7 +254,7 @@ router.post('/close-shift', async (req, res) => {
 
     const { error: shiftError } = await supabase
       .from('shifts')
-      .update({ clock_out_time: new Date().toISOString() })
+      .update({ clock_out_time: new Date().toISOString(), status: 'closed' })
       .eq('id', activeShift.id);
 
     if (shiftError) throw shiftError;
