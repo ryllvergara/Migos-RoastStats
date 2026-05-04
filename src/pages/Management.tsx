@@ -8,9 +8,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { RegisterModal } from '@/components/RegisterModal';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import logoImage from '@/assets/logoImage.png';
-
-const BASE_URL = import.meta.env.VITE_BASE_URL;
-const MANAGEMENT_URL = `${BASE_URL}/api/management`;
+import { AppConfig } from '../patterns/index';
 
 interface BranchData {
   id: string;
@@ -31,6 +29,7 @@ export function Management() {
   const [staff, setStaff] = useState<StaffData[]>([]);
   const [loading, setLoading] = useState(true);
   const [managementTab, setManagementTab] = useState<'branches' | 'staff'>('branches');
+  const config = AppConfig.getInstance();
 
   // Dialog & Form States
   const [isBranchDialogOpen, setIsBranchDialogOpen] = useState(false);
@@ -48,7 +47,7 @@ export function Management() {
     setLoading(true);
     try {
       const endpoint = managementTab === 'branches' ? 'branches' : 'users';
-      const res = await fetch(`${MANAGEMENT_URL}/${endpoint}`);
+      const res = await fetch(`${config.baseUrl}/management/${endpoint}`);
       const data = await res.json();
       if (managementTab === 'branches') setBranches(data || []);
       else setStaff(data || []);
@@ -66,7 +65,7 @@ export function Management() {
   // Branch Actions
   const handleSaveBranch = async () => {
     const method = editingBranch ? 'PATCH' : 'POST';
-    const url = editingBranch ? `${MANAGEMENT_URL}/branches/${editingBranch.id}` : `${MANAGEMENT_URL}/branches`;
+    const url = editingBranch ? `${config.baseUrl}/management/branches/${editingBranch.id}` : `${config.baseUrl}/management/branches`;
 
     try {
       const res = await fetch(url, {
@@ -87,7 +86,7 @@ export function Management() {
   // Staff Actions
   const handleSaveStaff = async () => {
     const method = editingStaff ? 'PATCH' : 'POST';
-    const url = editingStaff ? `${MANAGEMENT_URL}/users/${editingStaff.id}` : `${MANAGEMENT_URL}/users`;
+    const url = editingStaff ? `${config.baseUrl}/management/users/${editingStaff.id}` : `${config.baseUrl}/management/users`;
 
     try {
       const res = await fetch(url, {
@@ -111,7 +110,7 @@ export function Management() {
     if (!deleteTarget) return;
     const endpoint = deleteTarget.type === 'branch' ? 'branches' : 'users';
     try {
-      await fetch(`${MANAGEMENT_URL}/${endpoint}/${deleteTarget.id}`, { method: 'DELETE' });
+      await fetch(`${config.baseUrl}/management/${endpoint}/${deleteTarget.id}`, { method: 'DELETE' });
       fetchData();
       setIsDeleteDialogOpen(false);
     } catch (err) { console.error(err); }

@@ -12,17 +12,13 @@ import {
   AlertDialogTitle, 
   AlertDialogTrigger 
 } from '@/components/ui/alert-dialog';  
+import { AppConfig } from '../patterns/index';
 
-const PORT = import.meta.env.PORT;
-const BASE_URL = `http://localhost:${PORT}/api/auth`;
 export function Navigation() {
   const location = useLocation();
   const navigate = useNavigate();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
-
-  const userRole = sessionStorage.getItem('userRole');
-  const userName = sessionStorage.getItem('userName');
-  const token = sessionStorage.getItem('token');
+  const config = AppConfig.getInstance();
 
   const links = [
     { path: '/pos', label: 'POS', icon: Flame, roles: ['employee'] },
@@ -33,15 +29,15 @@ export function Navigation() {
     { path: '/analytics', label: 'Analytics', icon: ChartNoAxesCombined, roles: ['owner'] },
   ];
 
-  const filteredLinks = links.filter(link => link.roles.includes(userRole || ''));
+  const filteredLinks = links.filter(link => link.roles.includes(config.userRole || ''));
 
   const handleLogout = async () => {
     setIsLoggingOut(true);
     try {
-      await fetch(`${BASE_URL}/logout`, {
+      await fetch(`${config.baseUrl}/auth/logout`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${token}`,
+          'Authorization': `Bearer ${config.token}`,
           'Content-Type': 'application/json',
         },
       });
@@ -77,11 +73,11 @@ export function Navigation() {
           })}
         </div>
 
-        {userName && (
+        {config.userName && (
           <div className="flex items-center gap-4">
             <div className="text-right hidden sm:block">
-              <p className="text-white text-xs font-bold leading-none">{userName}</p>
-              <p className="text-gray-500 text-[10px] uppercase font-black tracking-widest">{userRole}</p>
+              <p className="text-white text-xs font-bold leading-none">{config.userName}</p>
+              <p className="text-gray-500 text-[10px] uppercase font-black tracking-widest">{config.userRole}</p>
             </div>
 
             <AlertDialog>
@@ -103,12 +99,12 @@ export function Navigation() {
                   <AlertDialogTitle className="text-xl font-bold text-[#212121]">
                     Confirm Logout
                   </AlertDialogTitle>
-                  {userRole === 'employee' && (
+                  {config.userRole === 'employee' && (
                     <AlertDialogDescription className="text-gray-500">
                     Are you sure you want to log out? This will end your current shift and lock this branch until the next login.
                     </AlertDialogDescription>
                   )}
-                  {userRole === 'owner' && (
+                  {config.userRole === 'owner' && (
                     <AlertDialogDescription className="text-gray-500">
                     Are you sure you want to log out?
                     </AlertDialogDescription>

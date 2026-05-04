@@ -8,6 +8,7 @@ import {
   TrendingUp, 
   Loader2 
 } from "lucide-react";
+import { AppConfig } from "@/patterns/index";
 
 interface AuditProduct {
   name: string;
@@ -29,9 +30,6 @@ interface AuditModalProps {
   onFinalize: () => void;
 }
 
-const PORT = import.meta.env.VITE_PORT;
-const BASE_URL = `http://localhost:${PORT}/api/audit`;
-
 export function AuditModal({ branchId, branchName, onClose, onFinalize }: AuditModalProps) {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -41,6 +39,7 @@ export function AuditModal({ branchId, branchName, onClose, onFinalize }: AuditM
     totalExpected: 0,
   });
   const [actualCash, setActualCash] = useState<string>("");
+  const config = AppConfig.getInstance();
 
   useEffect(() => {
     fetchAuditDetails();
@@ -48,7 +47,7 @@ export function AuditModal({ branchId, branchName, onClose, onFinalize }: AuditM
 
   const fetchAuditDetails = async () => {
     try {
-      const res = await fetch(`${BASE_URL}/details/${branchId}`);
+      const res = await fetch(`${config.baseUrl}/audit/details/${branchId}`);
       const result = await res.json();
       setData(result);
     } catch (err) {
@@ -66,7 +65,7 @@ export function AuditModal({ branchId, branchName, onClose, onFinalize }: AuditM
     
     setSubmitting(true);
     try {
-      const res = await fetch(`${BASE_URL}/finalize`, {
+      const res = await fetch(`${config.baseUrl}/audit/finalize`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

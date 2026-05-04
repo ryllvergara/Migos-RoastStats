@@ -8,9 +8,7 @@ import {
 } from "lucide-react";
 import { AuditModal } from "../components/AuditModal";
 import logoImage from "@/assets/logoImage.png";
-
-const BASE_URL = import.meta.env.VITE_BASE_URL;
-const API_URL = `${BASE_URL}/api`;
+import { AppConfig } from "../patterns/index";
 
 interface Branch {
   id: string;
@@ -23,6 +21,7 @@ export function Audit() {
   const [branches, setBranches] = useState<Branch[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedBranch, setSelectedBranch] = useState<Branch | null>(null);
+  const config = AppConfig.getInstance();
 
   useEffect(() => {
     fetchBranches();
@@ -30,7 +29,7 @@ export function Audit() {
 
   const fetchBranches = async () => {
     try {
-      const res = await fetch(`${API_URL}/auth/branches`);
+      const res = await fetch(`${config.baseUrl}/auth/branches`);
       const data = await res.json();
       setBranches(data);
     } catch (err) {

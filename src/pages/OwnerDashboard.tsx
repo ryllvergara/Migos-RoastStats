@@ -1,10 +1,8 @@
 import { useState, useEffect } from 'react';
+import { AppConfig } from '../patterns/index';
 import { AuditModal } from '../components/AuditModal';
 import { Clock, AlertCircle, TrendingUp, Loader2 } from 'lucide-react';
 import logoImage from '@/assets/logoImage.png';
-
-const BASE_URL = import.meta.env.VITE_BASE_URL;
-const DASHBOARD_URL = `${BASE_URL}/api/dashboard`;
 
 interface GrillingProduct {
   product_name: string;
@@ -31,10 +29,11 @@ export function OwnerDashboard() {
   const [branches, setBranches] = useState<BranchData[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedAuditBranch, setSelectedAuditBranch] = useState<{ id: string; name: string } | null>(null);
+  const config = AppConfig.getInstance();
 
   const fetchData = async () => {
     try {
-      const res = await fetch(`${DASHBOARD_URL}/overview`);
+      const res = await fetch(`${config.baseUrl}/dashboard/overview`);
       const data = await res.json();
       const formattedData = data.map((b: any) => ({
         ...b,

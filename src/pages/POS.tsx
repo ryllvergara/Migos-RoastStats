@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { AppConfig } from "../patterns/index";
 import { Undo2, Flame, Loader2, RefreshCw, SaveAll } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import logoImage from "@/assets/logoImage.png";
@@ -26,29 +27,21 @@ const UI_COLORS = [
   { color: "bg-[#212121]", hover: "hover:bg-[#424242]" },
 ];
 
-const BASE_URL = import.meta.env.VITE_BASE_URL;
-const API_URL = `${BASE_URL}/api`;
-
 export function GrillSidePOS() {
   const [menuItems, setMenuItems] = useState<Product[]>([]);
   const [grillCount, setGrillCount] = useState<Record<string, number>>({});
   const [recentSales, setRecentSales] = useState<SaleItem[]>([]);
   const [totalRevenue, setTotalRevenue] = useState(0);
   const [loading, setLoading] = useState(true);
-
-  const employeeBranchId = sessionStorage.getItem("activeBranchId");
-  const employeeId = sessionStorage.getItem("userId");
-  const employeeName = sessionStorage.getItem("userName"); 
-  const branchName = sessionStorage.getItem("branchName");
+  const config = AppConfig.getInstance();
 
   const syncBranchData = async (showLoader = false) => {
-    console.log("Syncing branch data for branch ID:", employeeBranchId);
-    if (!employeeBranchId) return; 
+    if (!config.branchId) return; 
     try {
       if (showLoader) setLoading(true);
       const [prodRes, syncRes] = await Promise.all([
-        fetch(`${API_URL}/products/branch/${employeeBranchId}`),
-        fetch(`${API_URL}/sync/${employeeBranchId}`)
+        fetch(`${config.baseUrl}/products/branch/${config.branchId}`),
+        fetch(`${config.baseUrl}/sync/${config.branchId}`)
       ]);
 
       if (!prodRes.ok || !syncRes.ok) throw new Error("Sync failed");
@@ -65,7 +58,6 @@ export function GrillSidePOS() {
 
       setMenuItems(flatProducts);
       setTotalRevenue(sync.totalRevenue || 0);
-
       setRecentSales(sync.history.map((s: any) => ({
         id: s.id,
         productId: s.product_id,
@@ -100,14 +92,14 @@ export function GrillSidePOS() {
     }
 
     try {
-      await fetch(`${API_URL}/sale`, {
+      await fetch(`${config.baseUrl}/sale`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           productId: item.id,
-          employeeId,
+          employeeId: config.employeeId,
           productName: item.product_name,
-          branchId: employeeBranchId,
+          branchId: config.branchId,
           isGrilled: item.is_grilled
         }),
       });
@@ -118,10 +110,10 @@ export function GrillSidePOS() {
   const handleUndo = async (sale: any) => {
     setRecentSales(prev => prev.filter(s => s.id !== sale.id));
     try {
-      await fetch(`${API_URL}/undo/${sale.id}`, {
+      await fetch(`${config.baseUrl}/undo/${sale.id}`, {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ productId: sale.productId, branchId: employeeBranchId, isGrilled: sale.isGrilled })
+        body: JSON.stringify({ productId: sale.productId, branchId: config.branchId, isGrilled: sale.isGrilled })
       });
       syncBranchData();
     } catch (err) { console.error(err); syncBranchData(); }
@@ -130,10 +122,10 @@ export function GrillSidePOS() {
   const handleCloseShift = async () => {
     setLoading(true);
     try {
-      const res = await fetch(`${API_URL}/close-shift`, {
+      const res = await fetch(`${config.baseUrl}/close-shift`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ branchId: employeeBranchId, employeeId }),
+        body: JSON.stringify({ branchId: config.branchId, employeeId: config.employeeId }),
       });
 
       const data = await res.json();
@@ -157,10 +149,10 @@ export function GrillSidePOS() {
     setGrillCount(prev => ({ ...prev, [productId]: Math.max(0, (prev[productId] || 0) + delta) }));
     
     try {
-      await fetch(`${API_URL}/grill-adjust`, {
+      await fetch(`${config.baseUrl}/grill-adjust`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ productId, branchId: employeeBranchId, delta }),
+        body: JSON.stringify({ productId, branchId: config.branchId, delta }),
       });
     } catch (err) { console.error(err); }
   };
@@ -178,7 +170,7 @@ export function GrillSidePOS() {
           <div>
             <h1 className="text-xl font-bold text-[#212121]">Grill Side POS</h1>
             <p className="text-sm text-gray-600">
-              {branchName} • {employeeName}
+              {config.branchName} • {config.userName}
             </p>
           </div>
         </div>
@@ -284,7 +276,7 @@ export function GrillSidePOS() {
           <AlertDialogHeader>
             <AlertDialogTitle className="text-[#212121]">Finalize Daily Sales?</AlertDialogTitle>
             <AlertDialogDescription>
-              This will archive all current sales from <strong>{branchName}</strong> and notify the owner for audit. You won't be able to undo transactions after this.
+              This will archive all current sales from <strong>{config.branchName}</strong> and notify the owner for audit. You won't be able to undo transactions after this.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
