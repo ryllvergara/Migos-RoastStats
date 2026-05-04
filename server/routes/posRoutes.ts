@@ -163,9 +163,13 @@ router.post('/close-shift', async (req, res) => {
       .eq('branch_id', branchId)
       .eq('employee_id', employeeId)
       .is('clock_out_time', null)
-      .single();
+      .maybeSingle();
 
     if (findShiftError) throw findShiftError;
+
+    if (!activeShift) {
+      return res.status(400).json({ error: "No active shift found. It may have already been closed." });
+    }
 
     const { data: inventoryData, error: invError } = await supabase
       .from('branch_inventory')
@@ -197,6 +201,9 @@ router.post('/close-shift', async (req, res) => {
     });
 
     inventoryData?.forEach((invItem) => {
+      const productInfo = Array.isArray(invItem.products) 
+        ? invItem.products[0] 
+        : invItem.products;
       const matchingKey = Array.from(reportMap.keys()).find(k => k.startsWith(`${invItem.product_id}-`));
     
       if (matchingKey) {
@@ -207,7 +214,7 @@ router.post('/close-shift', async (req, res) => {
           shift_id: activeShift.id,
           branch_id: branchId,
           product_id: invItem.product_id,
-          product_name: invItem.products[0]?.product_name,
+          product_name: productInfo?.product_name, 
           unit_price: 0, 
           quantity_sold: 0,
           product_revenue: 0,
