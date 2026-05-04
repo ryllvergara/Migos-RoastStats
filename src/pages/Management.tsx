@@ -9,7 +9,8 @@ import { RegisterModal } from '@/components/RegisterModal';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import logoImage from '@/assets/logoImage.png';
 
-const BASE_URL = `http://localhost:3000/api/management`;
+const BASE_URL = import.meta.env.VITE_BASE_URL;
+const MANAGEMENT_URL = `${BASE_URL}/api/management`;
 
 interface BranchData {
   id: string;
@@ -47,7 +48,7 @@ export function Management() {
     setLoading(true);
     try {
       const endpoint = managementTab === 'branches' ? 'branches' : 'users';
-      const res = await fetch(`${BASE_URL}/${endpoint}`);
+      const res = await fetch(`${MANAGEMENT_URL}/${endpoint}`);
       const data = await res.json();
       if (managementTab === 'branches') setBranches(data || []);
       else setStaff(data || []);
@@ -65,7 +66,7 @@ export function Management() {
   // Branch Actions
   const handleSaveBranch = async () => {
     const method = editingBranch ? 'PATCH' : 'POST';
-    const url = editingBranch ? `${BASE_URL}/branches/${editingBranch.id}` : `${BASE_URL}/branches`;
+    const url = editingBranch ? `${MANAGEMENT_URL}/branches/${editingBranch.id}` : `${MANAGEMENT_URL}/branches`;
 
     try {
       const res = await fetch(url, {
@@ -86,7 +87,7 @@ export function Management() {
   // Staff Actions
   const handleSaveStaff = async () => {
     const method = editingStaff ? 'PATCH' : 'POST';
-    const url = editingStaff ? `${BASE_URL}/users/${editingStaff.id}` : `${BASE_URL}/users`;
+    const url = editingStaff ? `${MANAGEMENT_URL}/users/${editingStaff.id}` : `${MANAGEMENT_URL}/users`;
 
     try {
       const res = await fetch(url, {
@@ -110,7 +111,7 @@ export function Management() {
     if (!deleteTarget) return;
     const endpoint = deleteTarget.type === 'branch' ? 'branches' : 'users';
     try {
-      await fetch(`${BASE_URL}/${endpoint}/${deleteTarget.id}`, { method: 'DELETE' });
+      await fetch(`${MANAGEMENT_URL}/${endpoint}/${deleteTarget.id}`, { method: 'DELETE' });
       fetchData();
       setIsDeleteDialogOpen(false);
     } catch (err) { console.error(err); }

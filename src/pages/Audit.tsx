@@ -9,8 +9,8 @@ import {
 import { AuditModal } from "../components/AuditModal";
 import logoImage from "@/assets/logoImage.png";
 
-const PORT = import.meta.env.VITE_PORT;
-const BASE_URL = `http://localhost:${PORT}/api`;
+const BASE_URL = import.meta.env.VITE_BASE_URL;
+const API_URL = `${BASE_URL}/api`;
 
 interface Branch {
   id: string;
@@ -30,7 +30,7 @@ export function Audit() {
 
   const fetchBranches = async () => {
     try {
-      const res = await fetch(`${BASE_URL}/auth/branches`);
+      const res = await fetch(`${API_URL}/auth/branches`);
       const data = await res.json();
       setBranches(data);
     } catch (err) {

@@ -26,8 +26,8 @@ const UI_COLORS = [
   { color: "bg-[#212121]", hover: "hover:bg-[#424242]" },
 ];
 
-const PORT = import.meta.env.VITE_PORT;
-const BASE_URL = `http://localhost:${PORT}/api`;
+const BASE_URL = import.meta.env.VITE_BASE_URL;
+const API_URL = `${BASE_URL}/api`;
 
 export function GrillSidePOS() {
   const [menuItems, setMenuItems] = useState<Product[]>([]);
@@ -47,8 +47,8 @@ export function GrillSidePOS() {
     try {
       if (showLoader) setLoading(true);
       const [prodRes, syncRes] = await Promise.all([
-        fetch(`${BASE_URL}/products/branch/${employeeBranchId}`),
-        fetch(`${BASE_URL}/sync/${employeeBranchId}`)
+        fetch(`${API_URL}/products/branch/${employeeBranchId}`),
+        fetch(`${API_URL}/sync/${employeeBranchId}`)
       ]);
 
       if (!prodRes.ok || !syncRes.ok) throw new Error("Sync failed");
@@ -100,7 +100,7 @@ export function GrillSidePOS() {
     }
 
     try {
-      await fetch(`${BASE_URL}/sale`, {
+      await fetch(`${API_URL}/sale`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -118,7 +118,7 @@ export function GrillSidePOS() {
   const handleUndo = async (sale: any) => {
     setRecentSales(prev => prev.filter(s => s.id !== sale.id));
     try {
-      await fetch(`${BASE_URL}/undo/${sale.id}`, {
+      await fetch(`${API_URL}/undo/${sale.id}`, {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ productId: sale.productId, branchId: employeeBranchId, isGrilled: sale.isGrilled })
@@ -130,7 +130,7 @@ export function GrillSidePOS() {
   const handleCloseShift = async () => {
     setLoading(true);
     try {
-      const res = await fetch(`${BASE_URL}/close-shift`, {
+      const res = await fetch(`${API_URL}/close-shift`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ branchId: employeeBranchId, employeeId }),
@@ -157,7 +157,7 @@ export function GrillSidePOS() {
     setGrillCount(prev => ({ ...prev, [productId]: Math.max(0, (prev[productId] || 0) + delta) }));
     
     try {
-      await fetch(`${BASE_URL}/grill-adjust`, {
+      await fetch(`${API_URL}/grill-adjust`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ productId, branchId: employeeBranchId, delta }),

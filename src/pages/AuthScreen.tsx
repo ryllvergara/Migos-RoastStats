@@ -3,7 +3,8 @@ import { useNavigate } from "react-router";
 import { LogIn, MapPin, Loader2 } from "lucide-react";
 import logoImage from "@/assets/logoImage.png";
 
-const baseUrl = `http://localhost:3000/api/auth`;
+const BASE_URL = import.meta.env.VITE_BASE_URL;
+const AUTH_URL = `${BASE_URL}/api/auth`;
 
 interface Branch {
   id: string;
@@ -23,7 +24,7 @@ export function AuthScreen() {
   useEffect(() => {
     const fetchBranches = async () => {
       try {
-        const response = await fetch(`${baseUrl}/branches`);
+        const response = await fetch(`${AUTH_URL}/branches`);
         if (!response.ok) throw new Error("Failed to fetch branches");
         const data = await response.json();
         setBranches(data);
@@ -46,7 +47,7 @@ export function AuthScreen() {
     setLoading(true);
 
     try {
-      const response = await fetch(`${baseUrl}/login`, {
+      const response = await fetch(`${AUTH_URL}/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ userName, userPin, userRole, branchId: selectedBranch }),

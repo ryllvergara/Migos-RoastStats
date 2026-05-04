@@ -27,9 +27,9 @@ const UI_COLORS = [
   { color: "bg-[#2196F3]", hoverColor: "hover:bg-[#1976D2]" },
 ];
 
-const PORT = import.meta.env.VITE_PORT;
-const BASE_AUTH_URL = `http://localhost:${PORT}/api/auth`;
-const BASE_PRODUCT_URL = `http://localhost:${PORT}/api/products`;
+const BASE_URL = import.meta.env.VITE_BASE_URL;
+const AUTH_URL = `${BASE_URL}/api/auth`;
+const PRODUCT_URL = `${BASE_URL}/api/products`;
 
 export function ProductsManager() {
   const [selectedBranchId, setSelectedBranchId] = useState<string>("")
@@ -49,7 +49,7 @@ export function ProductsManager() {
   useEffect(() => {
     const fetchBranches = async () => {
       try {
-        const res = await fetch(`${BASE_AUTH_URL}/branches`);
+        const res = await fetch(`${AUTH_URL}/branches`);
         const data = await res.json();
         setBranches(data);
       } catch (err) {
@@ -63,7 +63,7 @@ export function ProductsManager() {
     if (!branchId) return;
     setLoading(true);
     try {
-      const res = await fetch(`${BASE_PRODUCT_URL}/branch/${branchId}`);
+      const res = await fetch(`${PRODUCT_URL}/branch/${branchId}`);
       const data = await res.json();
       setInventory(data);
     } catch (err) {
@@ -82,7 +82,7 @@ export function ProductsManager() {
     if (!newProduct.name || newProduct.price <= 0) return alert("Invalid inputs");
 
     try {
-      const res = await fetch(`${BASE_PRODUCT_URL}/branch-assign`, {
+      const res = await fetch(`${PRODUCT_URL}/branch-assign`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -114,7 +114,7 @@ export function ProductsManager() {
 
   const saveEdit = async (id: string) => {
     try {
-      const res = await fetch(`${BASE_PRODUCT_URL}/inventory/${id}`, {
+      const res = await fetch(`${PRODUCT_URL}/inventory/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -144,7 +144,7 @@ export function ProductsManager() {
       return;
 
     try {
-      const res = await fetch(`${BASE_PRODUCT_URL}/inventory/${id}`, {
+      const res = await fetch(`${PRODUCT_URL}/inventory/${id}`, {
         method: "DELETE",
         headers: {
           "Content-Type": "application/json",

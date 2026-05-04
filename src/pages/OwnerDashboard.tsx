@@ -3,8 +3,8 @@ import { AuditModal } from '../components/AuditModal';
 import { Clock, AlertCircle, TrendingUp, Loader2 } from 'lucide-react';
 import logoImage from '@/assets/logoImage.png';
 
-const PORT = import.meta.env.VITE_PORT;
-const BASE_URL = `http://localhost:${PORT}/api/dashboard`;
+const BASE_URL = import.meta.env.VITE_BASE_URL;
+const DASHBOARD_URL = `${BASE_URL}/api/dashboard`;
 
 interface GrillingProduct {
   product_name: string;
@@ -34,7 +34,7 @@ export function OwnerDashboard() {
 
   const fetchData = async () => {
     try {
-      const res = await fetch(`${BASE_URL}/overview`);
+      const res = await fetch(`${DASHBOARD_URL}/overview`);
       const data = await res.json();
       const formattedData = data.map((b: any) => ({
         ...b,
