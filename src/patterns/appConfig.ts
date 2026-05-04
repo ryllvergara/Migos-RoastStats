@@ -12,6 +12,8 @@ export class AppConfig {
   readonly branchId: string;
   readonly branchName: string;
   readonly userName: string;
+  readonly userRole: string;
+  readonly token: string;
 
   // Private Constructor: prevents external instantiation 
   private constructor() {
@@ -21,6 +23,8 @@ export class AppConfig {
     this.branchId = sessionStorage.getItem('activeBranchId') ?? '';
     this.branchName = sessionStorage.getItem('branchName') ?? '';
     this.userName = sessionStorage.getItem('userName') ?? '';
+    this.userRole = sessionStorage.getItem('userRole') ?? '';
+    this.token = sessionStorage.getItem('token') ?? '';
   }
 
   // Public Static Method: provides access to the single instance of AppConfig
