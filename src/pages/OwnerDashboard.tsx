@@ -54,8 +54,16 @@ export function OwnerDashboard() {
 
   useEffect(() => {
     fetchData();
-    const interval = setInterval(fetchData, 5000); 
-    return () => clearInterval(interval);
+    const source = new EventSource(`${config.baseUrl}/dashboard/live-updates`);
+    source.onmessage = () => {
+       fetchData();
+    };
+    source.onerror = (err) => {
+      console.error('EventSource error:', err);
+    };
+    return () => {
+      source.close();
+    };
   }, []);
 
   const totalRevenue = branches.reduce((sum, b) => sum + b.revenue, 0);
