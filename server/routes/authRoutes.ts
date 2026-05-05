@@ -35,12 +35,34 @@ const verifyToken = (req: any, res: any, next: any) => {
 };
 
 router.get('/branches', async (_req, res) => {
-  const { data, error } = await supabase
-    .from('branches')
-    .select('*')
-    .order('branch_name', { ascending: true });
-  if (error) return res.status(500).json({ error: error.message });
-  res.json(data);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const startOfToday = today.toISOString();
+
+  try {
+    const { data: auditedBranches, error: branchError } = await supabase
+      .from('branches')
+      .select('*')
+      .eq('last_audit_status', 'audited')
+      .order('branch_name', { ascending: true })
+    if (branchError) throw branchError;
+
+    const { data: todayReports, error: reportError } = await supabase
+        .from('sales_reports')
+        .select('branch_id')
+        .gte('created_at', startOfToday);
+    if (reportError) throw reportError;
+
+    const activeBranchIds = new Set(todayReports.map(r => r.branch_id));
+    
+    const availableBranches = auditedBranches.filter(
+      branch => !activeBranchIds.has(branch.id)
+    );
+
+    res.json(availableBranches);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 router.post("/login", async (req: Request, res: Response) => {
@@ -81,6 +103,12 @@ router.post("/login", async (req: Request, res: Response) => {
           error: `Branch is currently occupied by ${occupant}. Please wait for them to close their shift.` 
         });
       }
+
+      const { error: statusError } = await supabase
+        .from('branches')
+        .update({ last_audit_status: 'active' })
+        .eq('id', branchId);
+      if (statusError) throw statusError;
 
       const { data: newShift, error: shiftErr } = await supabase
         .from("shifts")
