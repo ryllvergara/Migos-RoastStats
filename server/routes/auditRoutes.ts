@@ -82,7 +82,7 @@ router.post('/finalize', async (req, res) => {
 
     const { error: branchError } = await supabase
       .from('branches')
-      .update({ last_audit_status: 'active' })
+      .update({ last_audit_status: 'audited' })
       .eq('id', branchId);
 
     if (branchError) throw branchError;
