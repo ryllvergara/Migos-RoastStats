@@ -162,10 +162,12 @@ export function AuthScreen() {
             <div className="space-y-3">
               <label className="block text-[#212121] mb-1 font-medium">Select Your Branch</label>
               {branches.length === 0 ? (
-                <p className="text-gray-400 text-sm italic">
-                  Loading branches...
-                </p>
-              ) : (
+                <div className="bg-gray-50 p-4 rounded-lg border-2 border-dashed border-gray-200">
+                    <p className="text-gray-500 text-sm text-center">
+                      No branches are currently available to start a shift.
+                    </p>
+                  </div>
+                ) : (
                 branches.map((branch) => (
                   <button
                     key={branch.id}
