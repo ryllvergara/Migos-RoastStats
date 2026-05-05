@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { AppConfig } from "../patterns/index";
+import { AppConfig, executeSale, undoLastSale } from "../patterns/index";
 import { Undo2, Flame, Loader2, RefreshCw, SaveAll } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import logoImage from "@/assets/logoImage.png";
@@ -92,29 +92,20 @@ export function GrillSidePOS() {
     }
 
     try {
-      await fetch(`${config.baseUrl}/sale`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          productId: item.id,
-          employeeId: config.employeeId,
-          productName: item.product_name,
-          branchId: config.branchId,
-          isGrilled: item.is_grilled
-        }),
-      });
+      await executeSale({ item, employeeId: config.employeeId!, branchId: config.branchId!, baseUrl: config.baseUrl });
       syncBranchData();
-    } catch (err) { console.error(err); }
+    } catch (err) { 
+      if (item.is_grilled) {
+          setGrillCount(prev => ({ ...prev, [item.id]: (prev[item.id] || 0) + 1 }));
+      }
+      console.error(err);
+    }
   };
 
   const handleUndo = async (sale: any) => {
     setRecentSales(prev => prev.filter(s => s.id !== sale.id));
     try {
-      await fetch(`${config.baseUrl}/undo/${sale.id}`, {
-        method: "DELETE",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ productId: sale.productId, branchId: config.branchId, isGrilled: sale.isGrilled })
-      });
+      await undoLastSale(sale.id);      
       syncBranchData();
     } catch (err) { console.error(err); syncBranchData(); }
   };
