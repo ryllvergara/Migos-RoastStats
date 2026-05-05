@@ -47,7 +47,7 @@ export function ProductsManager() {
   useEffect(() => {
     const fetchBranches = async () => {
       try {
-        const res = await fetch(`${config.baseUrl}/auth/branches`);
+        const res = await fetch(`${config.baseUrl}/management/branches`);
         const data = await res.json();
         setBranches(data);
       } catch (err) {
