@@ -136,7 +136,7 @@ router.post("/login", async (req: Request, res: Response) => {
         userId: user.id,
         userName: user.user_name,
         userRole: user.user_role,
-        shiftId: user.activeShiftId
+        shiftId: activeShiftId
       }
     });
   } catch (err: any) {
