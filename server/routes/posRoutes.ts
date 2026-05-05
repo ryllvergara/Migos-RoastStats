@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { supabase } from '../supabaseAdmin';
+import { eventBus } from './patterns/index';
 
 const router = Router();
 
@@ -74,6 +75,7 @@ router.post('/sale', async (req, res) => {
       });
       if (stockError) throw stockError;
     }
+    eventBus.emit('branch:update', { branchId, type: 'sale', timestamp: new Date().toISOString() });
     res.status(201).json(sale);
   } catch (error: any) {
     res.status(500).json({ error: error.message });
@@ -97,7 +99,7 @@ router.patch('/grill-adjust', async (req, res) => {
         p_delta: Number(-delta)
       });
       if (updateError) throw updateError;
-
+    eventBus.emit('branch:update', { branchId, type: 'grill', timestamp: new Date().toISOString() });
     res.json({ success: true });
   } catch (err: any) {
     console.error("RPC Error:", err);
@@ -128,6 +130,7 @@ router.delete('/undo/:saleId', async (req, res) => {
       });
       if (stockError) throw stockError;
     }
+    eventBus.emit('branch:update', { branchId, type: 'undo', timestamp: new Date().toISOString() });
     res.json({ success: true });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
@@ -267,6 +270,7 @@ router.post('/close-shift', async (req, res) => {
 
     if (shiftError) throw shiftError;
 
+    eventBus.emit('branch:update', { branchId, type: 'shift-closed' });
     res.json({ 
       message: "Shift closed and clocked out successfully.", 
       shouldLogout: true,
