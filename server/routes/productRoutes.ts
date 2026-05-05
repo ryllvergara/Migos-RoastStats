@@ -37,7 +37,7 @@ router.post('/branch-assign', async (req, res) => {
     let { data: product, error: pError } = await supabase
       .from('products')
       .select('*')
-      .eq('product_name'.toLowerCase(), product_name.toLowerCase())
+      .ilike('product_name', product_name)
       .maybeSingle();
 
     if (pError) throw pError;
@@ -94,9 +94,9 @@ router.patch('/update-stock', async (req, res) => {
   const { branchId, productId, quantityChange } = req.body; 
 
   const { error } = await supabase.rpc('decrement_stock', {
-    b_id: branchId,
-    p_id: productId,
-    amount: quantityChange 
+    b_id: Number(branchId),
+    p_id: Number(productId),
+    amount: Number(quantityChange) 
   });
 
   if (error) return res.status(500).json({ error: error.message });
