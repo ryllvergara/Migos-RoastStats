@@ -1,10 +1,8 @@
-import { describe, it, expect, beforeAll, beforeEach, jest } from "@jest/globals";
+import { describe, it, expect, beforeAll, afterEach, beforeEach } from "@jest/globals";
 import request from "supertest";
-import app from "../server.js";
-import { supabase } from "../supabaseAdmin.js";
-import { clearTestData } from "./setup.js";
-
-jest.setTimeout(15000);
+import app from "../server.ts";
+import { supabase } from "../supabaseAdmin.ts";
+import { clearTestData } from "./setup.ts";
 
 describe("Management API Integration Tests", () => {
   let testBranchId: number;
@@ -14,33 +12,16 @@ describe("Management API Integration Tests", () => {
     await clearTestData();
   });
 
-  beforeEach(async () => {
-    await supabase.from("users").delete().neq("id", "-1");
-    await supabase.from("branches").delete().neq("id", "-1");
-
-    const { data: branch } = await supabase
-      .from("branches")
-      .insert([{ branch_name: "Candy Kingdom", branch_address: "Land of Ooo" }])
-      .select()
-      .single();
-    testBranchId = branch.id;
-
-    const { data: user } = await supabase
-      .from("users")
-      .insert([{ 
-        user_name: "Finn the Human", 
-        user_pin: "1234", 
-        user_role: "employee", 
-        branch_id: testBranchId 
-      }])
-      .select()
-      .single();
-    testStaffId = user.id;
+  afterEach(async () => {
+    await clearTestData();
   });
 
   describe("Branch Management", () => {
     // Happy Path: fetch branches successfully
     it("should fetch all branches", async () => {
+      await supabase.from("branches").insert([
+        { branch_name: "Candy Kingdom", branch_address: "Land of Ooo" },
+      ]);
       const res = await request(app).get("/api/management/branches");
       expect(res.status).toBe(200);
       expect(Array.isArray(res.body)).toBe(true);
@@ -49,8 +30,9 @@ describe("Management API Integration Tests", () => {
 
     // Happy Path: create a new branch
     it("should create a new branch", async () => {
-      const newBranch = { branch_name: "Jaro Branch", branch_address: "Jarp, Iloilo" };
-      const res = await request(app).post("/api/management/branches").send(newBranch);  
+      const res = await request(app)
+        .post("/api/management/branches")
+        .send({ branch_name: "Jaro Branch", branch_address: "Jaro, Iloilo" });
       expect(res.status).toBe(201);
       expect(res.body.branch_name).toBe("Jaro Branch");
     });
@@ -63,40 +45,81 @@ describe("Management API Integration Tests", () => {
 
     // Happy Path: update branch details
     it("should update branch details", async () => {
-      const update = { branch_name: "Updated Branch Name" };
+      const branch = await supabase
+        .from("branches")
+        .insert([{ branch_name: "Old Name", branch_address: "Old Addr" }])
+        .select()
+        .single();
+
       const res = await request(app)
-        .patch(`/api/management/branches/${testBranchId}`)
-        .send(update);
+        .patch(`/api/management/branches/${branch.data.id}`)
+        .send({ branch_name: "Updated Branch Name" });
+
       expect(res.status).toBe(200);
       expect(res.body.branch_name).toBe("Updated Branch Name");
     });
 
-    // Sad Path: update non-existent branch
-    it("should return 404 (or null) when patching a non-existent branch", async () => {
+    // Sad Path: update non-existing branch
+    it("should return 404 when updating non-existent branch", async () => {
       const res = await request(app)
         .patch("/api/management/branches/99999")
         .send({ branch_name: "Ghost Branch" });
       expect(res.status).toBe(404);
+      expect(res.body.error).toBe("Branch not found");
     });
 
     // Happy Path: delete a branch
     it("should remove a branch", async () => {
-      await supabase.from("users").delete().eq("branch_id", testBranchId);
-      const res = await request(app).delete(`/api/management/branches/${testBranchId}`);
+      const branch = await supabase
+        .from("branches")
+        .insert([{ branch_name: "Delete Me", branch_address: "Nowhere" }])
+        .select()
+        .single();
+
+      const res = await request(app).delete(
+        `/api/management/branches/${branch.data.id}`
+      );
+
       expect(res.status).toBe(204);
-      const { data } = await supabase.from("branches").select().eq("id", testBranchId);
+      const { data } = await supabase
+        .from("branches")
+        .select()
+        .eq("id", branch.data.id);
       expect(data?.length).toBe(0);
     });
   });
 
   describe("Staff Management", () => {
+    beforeEach(async () => {
+      const branch = await supabase
+        .from("branches")
+        .insert([{ branch_name: "Test Branch", branch_address: "Somewhere" }])
+        .select()
+        .single();
+
+      testBranchId = branch.data.id;
+
+      const user = await supabase
+        .from("users")
+        .insert([
+          {
+            user_name: "Finn the Human",
+            user_pin: "1234", 
+            user_role: "employee",
+          },
+        ])
+        .select()
+        .single();
+
+      testStaffId = user.data.id;
+    });
+    
     // Happy Path: fetch only employees
     it("should fetch only staff members (employees)", async () => {
       await supabase.from("users").insert([{ 
         user_name: "Migo Owner", 
         user_pin: "9999", 
-        user_role: "owner", 
-        branch_id: testBranchId 
+        user_role: "owner",   
       }]);
       const res = await request(app).get("/api/management/users");
       expect(res.status).toBe(200);
@@ -109,28 +132,30 @@ describe("Management API Integration Tests", () => {
       await supabase.from("users").delete().neq("id", "-1");
       const res = await request(app).get("/api/management/users");
       expect(res.status).toBe(200);
-      expect(Array.isArray(res.body)).toBe(true);
       expect(res.body.length).toBe(0);
     });
 
     // Happy Path: update staff details
     it("should update staff name and role", async () => {
-      const update = { user_name: "Marshall Lee", user_role: "OWNER" }; 
       const res = await request(app)
         .patch(`/api/management/users/${testStaffId}`)
-        .send(update);
-      
+        .send({
+          user_name: "Marshall Lee",
+          user_role: "OWNER",
+        });
+
       expect(res.status).toBe(200);
       expect(res.body.user_name).toBe("Marshall Lee");
-      expect(res.body.user_role).toBe("owner"); 
+      expect(res.body.user_role).toBe("owner");
     });
 
     // Sad Path: update non-existent staff
-    it("should return 404 (or null) when patching a non-existent staff member", async () => {
+    it("should return 404 when patching a non-existent staff member", async () => {
       const res = await request(app)
         .patch("/api/management/users/99999")
-        .send({ user_name: "Ghost Staff" });
+        .send({ user_name: "Ghost" });
       expect(res.status).toBe(404);
+      expect(res.body.error).toBe("User not found");
     });
 
     // Happy Path: delete a staff member
