@@ -1,7 +1,19 @@
 import express from 'express';
 import { supabase } from '../supabaseAdmin';
+import { eventBus } from './patterns/index';
 
 const router = express.Router();
+
+// GET: SSE Observer Endpoint for live updates on the dashboard
+router.get('/live-updates', (req, res) => {
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+
+  const listener = (payload: any) => res.write(`data: ${JSON.stringify(payload)}\n\n`);
+  eventBus.on('branch:update', listener);
+  req.on('close', () => eventBus.off('branch:update', listener));
+});
 
 // GET: Dashboard Overview
 router.get('/overview', async (_req, res) => {
@@ -84,7 +96,6 @@ router.get('/overview', async (_req, res) => {
 
     res.json(dashboardData);
   } catch (err: any) {
-    console.error("Dashboard API Error:", err.message);
     res.status(500).json({ error: err.message });
   }
 });
