@@ -7,7 +7,7 @@ const router = express.Router();
 // BRANCH ROUTES
 
 // Get all branches
-router.get('/branches', async (req, res) => {
+router.get('/branches', async (_req, res) => {
   const { data, error } = await supabase
     .from('branches')
     .select('*')
@@ -54,7 +54,7 @@ router.delete('/branches/:id', async (req, res) => {
 // STAFF ROUTES
 
 // Get all staff
-router.get("/users", async (req, res) => {
+router.get("/users", async (_req, res) => {
   const { data, error } = await supabase
     .from("users")
     .select("id, user_name, user_role")
