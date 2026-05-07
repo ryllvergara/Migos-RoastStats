@@ -1,25 +1,18 @@
 import { useState, useEffect, useMemo } from 'react';
 import { AppConfig } from '@/patterns/index';
 import { 
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
-  PieChart, Pie, Cell 
-} from 'recharts';
-import { 
-  ChevronLeft, ChevronRight, TrendingUp, 
-  Eye, EyeOff, DollarSign, ShoppingBag, MapPin 
+  TrendingUp, DollarSign, ShoppingBag, MapPin 
 } from 'lucide-react';
-import { StatCard } from '@/components/StatCard';
 import { format, startOfWeek, endOfWeek, subWeeks } from 'date-fns';
+
+// Component Imports
+import { StatCard } from '@/components/analytics/StatCard';
+import { WeekNavigator } from '@/components/analytics/WeekNavigator';
+import { BranchBarChart } from '@/components/analytics/BranchBarChart';
+import { ProductPieChart, ProductChartData } from '@/components/analytics/ProductPieChart';
+import { AuditLogsSection } from '@/components/analytics/AuditLogsSection';
+
 import logoImage from '@/assets/logoImage.png';
-
-const COLORS = ['#E02020', '#FFA500', '#F26522', '#000000', '#D3D3D3', '#FFCC00',];
-
-interface ProductChartData {
-  name: string;
-  value: number;
-  revenue: number;
-  units: number;
-}
 
 export function Analytics() {
   const [weekOffset, setWeekOffset] = useState(0);
@@ -93,21 +86,15 @@ export function Analytics() {
 
     const sortedData = Object.values(groups).sort((a: any, b: any) => {
       if (viewType === 'revenue') {
-        // Primary: Revenue
         if (b.revenue !== a.revenue) return b.revenue - a.revenue;
-        // Secondary: Units Sold
         if (b.units !== a.units) return b.units - a.units;
       } else {
-        // Primary: Units Sold
         if (b.units !== a.units) return b.units - a.units;
-        // Secondary: Revenue
         if (b.revenue !== a.revenue) return b.revenue - a.revenue;
       }
-      // Tertiary: Alphabetical
       return a.name.localeCompare(b.name);
     });
 
-    // Map to the format needed for the chart
     return sortedData.map((p: any) => ({
       name: p.name,
       value: viewType === 'revenue' ? p.revenue : p.units,
@@ -125,7 +112,6 @@ export function Analytics() {
       return acc;
     }, {});
 
-    // Sort by revenue descending and pick the first one
     const sorted = (Object.entries(totals) as [string, number][]).sort(
       (a, b) => b[1] - a[1]
     );
@@ -145,18 +131,14 @@ export function Analytics() {
             <p className="text-gray-600 font-medium">View and analyze sales data and performance</p>
           </div>
         </div>
-        <div className="flex items-center bg-white border-2 border-gray-100 rounded-2xl p-1 shadow-sm">
-          <button onClick={() => setWeekOffset(v => v + 1)} className="p-2 hover:bg-gray-50 rounded-xl transition-colors">
-            <ChevronLeft className="h-5 w-5 text-gray-400" />
-          </button>
-          <div className="px-4 text-center min-w-[200px]">
-            <p className="text-[10px] font-black uppercase text-gray-400 tracking-widest">Selected Week</p>
-            <p className="text-sm font-bold">{format(start, 'MMM dd, yyyy')} - {format(end, 'MMM dd, yyyy')}</p>
-          </div>
-          <button onClick={() => setWeekOffset(v => v - 1)} disabled={weekOffset === 0} className="p-2 hover:bg-gray-50 rounded-xl transition-colors disabled:opacity-20">
-            <ChevronRight className="h-5 w-5 text-gray-400" />
-          </button>
-        </div>
+        
+        <WeekNavigator 
+          start={start}
+          end={end}
+          weekOffset={weekOffset}
+          onPrevWeek={() => setWeekOffset(v => v + 1)}
+          onNextWeek={() => setWeekOffset(v => v - 1)}
+        />
       </div>
 
       {/* Top Stats Row */}
@@ -188,139 +170,29 @@ export function Analytics() {
         />
         <StatCard 
           label="Top Product" 
-
-           value={(productPieData as ProductChartData[])[0]?.name || 'N/A'}
-           trend={viewType === 'revenue' ? 'By Revenue' : 'By Quantity Sold'}
-           icon={<ShoppingBag className="h-4 w-4" />}
+          value={(productPieData as ProductChartData[])[0]?.name || 'N/A'}
+          trend={viewType === 'revenue' ? 'By Revenue' : 'By Quantity Sold'}
+          icon={<ShoppingBag className="h-4 w-4" />}
         />
       </div>
 
       {/* Graphs Section */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Branch Performance - Bar Chart */}
-        <div className="lg:col-span-2 bg-white p-8 rounded-[32px] shadow-sm border border-gray-100">
-          <h3 className="text-sm font-black uppercase tracking-widest text-gray-400 mb-8">Branch Performance Breakdown</h3>
-          <div className="h-[400px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={branchChartData}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F1F5F9" />
-                <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{fill: '#94A3B8', fontSize: 12}} dy={10} />
-                <YAxis axisLine={false} tickLine={false} tick={{fill: '#94A3B8', fontSize: 12}} />
-                <Tooltip cursor={{fill: '#F8FAFC'}} contentStyle={{borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)'}} />
-                <Legend iconType="circle" wrapperStyle={{paddingTop: '20px'}} />
-                {branchChartData.length > 0 && 
-                  Object.keys(branchChartData[0])
-                    .filter(key => key !== 'day')
-                    .map((branchName, i) => (
-                      <Bar 
-                        key={branchName} 
-                        dataKey={branchName} 
-                        fill={COLORS[i % COLORS.length]} 
-                        radius={[4, 4, 0, 0]} 
-                      />
-                    ))
-                }
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-
-        {/* Product Performance - Pie Chart */}
-        <div className="bg-white p-8 rounded-[32px] shadow-sm border border-gray-100">
-          <div className="flex justify-between items-center mb-8">
-            <h3 className="text-sm font-black uppercase tracking-widest text-gray-400">Product Share</h3>
-            <select 
-              value={viewType} 
-              onChange={(e) => setViewType(e.target.value as any)}
-              className="bg-gray-50 border-none text-xs font-bold rounded-lg px-2 py-1 outline-none"
-            >
-              <option value="revenue">By Revenue</option>
-              <option value="quantity">By Quantity Sold</option>
-            </select>
-          </div>
-          <div className="h-[300px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie 
-                  data={productPieData} 
-                  innerRadius={70} 
-                  outerRadius={100} 
-                  paddingAngle={8} 
-                  dataKey="value"
-                >
-                  {productPieData.map((_, index) => <Cell key={index} fill={COLORS[index % COLORS.length]} />)}
-                </Pie>
-                <Tooltip />
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
-          <div className="mt-4 space-y-2">
-            {(productPieData as ProductChartData[]).map((p, i) => (
-              <div key={i} className="flex justify-between items-center text-sm">
-                <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 rounded-full" style={{backgroundColor: COLORS[i % COLORS.length]}} />
-                  <span className="text-gray-600 font-medium">{p.name}</span>
-                </div>
-                <div className="flex flex-col items-end">
-                  {/* Primary Value */}
-                  <span className="font-bold text-gray-900">
-                    {viewType === 'revenue' ? `₱${p.revenue.toLocaleString()}` : `${p.units} units`}
-                  </span>
-                  {/* Secondary Value */}
-                  <span className="text-[10px] text-gray-400">
-                    {viewType === 'revenue' ? `${p.units} units` : `₱${p.revenue.toLocaleString()}`}
-                  </span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
+        <BranchBarChart data={branchChartData} />
+        
+        <ProductPieChart 
+          data={productPieData as ProductChartData[]}
+          viewType={viewType}
+          onViewTypeChange={(v) => setViewType(v)}
+        />
       </div>
 
       {/* Audit Logs Section */}
-      <div className="bg-white rounded-[32px] shadow-sm border border-gray-100 overflow-hidden">
-        <button 
-          onClick={() => setShowLogs(!showLogs)}
-          className="w-full flex items-center justify-between p-8 hover:bg-gray-50 transition-colors"
-        >
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-gray-100 rounded-xl text-gray-500">
-              {showLogs ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
-            </div>
-            <span className="font-black text-gray-900 tracking-tight">Audit Logs for the Week</span>
-          </div>
-          <span className="text-xs font-bold text-[#D32F2F] uppercase tracking-widest">{data.logs.length} Total Logs</span>
-        </button>
-        
-        {showLogs && (
-          <div className="px-8 pb-8 space-y-4">
-            {data.logs.map((log: any, i: number) => (
-              <div key={i} className="flex flex-col md:flex-row md:items-center justify-between p-4 bg-gray-50 rounded-2xl border border-gray-100 gap-4">
-                <div>
-                  <p className="font-bold text-gray-900">{log.branches?.branch_name ?? 'Unknown'}</p>                  <p className="text-xs text-gray-500 font-medium">{format(new Date(log.audited_at), 'PPPP p')}</p>
-                </div>
-                <div className="flex gap-8">
-                  <div className="text-right">
-                    <p className="text-[10px] font-black uppercase text-gray-400">Expected</p>
-                    <p className="font-bold">₱{log.expected_revenue.toLocaleString()}</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-[10px] font-black uppercase text-gray-400">Actual</p>
-                    <p className="font-bold">₱{log.actual_cash.toLocaleString()}</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-[10px] font-black uppercase text-gray-400">Variance</p>
-                    <p className={`font-black ${log.variance < 0 ? 'text-red-500' : 'text-green-500'}`}>
-                      {log.variance < 0 ? '-' : '+'}₱{Math.abs(log.variance).toLocaleString()}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
+      <AuditLogsSection 
+        logs={data.logs}
+        showLogs={showLogs}
+        onToggle={() => setShowLogs(!showLogs)}
+      />
     </div>
   );
 }
-
