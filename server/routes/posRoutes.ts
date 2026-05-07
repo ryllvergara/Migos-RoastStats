@@ -11,6 +11,11 @@ router.get('/sync/:branchId', async (req, res) => {
   today.setHours(0, 0, 0, 0);
   const startOfToday = today.toISOString();
   try {
+    const { data: branchStocks, error: stocksError } = await supabase 
+      .from('branch_inventory')
+      .select('product_id, stock_quantity')
+      .eq('branch_id', branchId)
+    if (stocksError) throw stocksError;
     const { data: salesData, error: salesError } = await supabase
       .from('sales')
       .select('*, products(product_name, is_grilled), sold_price, users(user_name)')
@@ -25,7 +30,7 @@ router.get('/sync/:branchId', async (req, res) => {
       .select('product_id, current_count')
       .eq('branch_id', branchId);
     if (grillError) throw grillError;
-    res.json({ totalRevenue, history, grillInventory });
+    res.json({ totalRevenue, history, grillInventory, branchStocks });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }
@@ -46,19 +51,7 @@ router.post('/sale', async (req, res) => {
       .single();
 
     if (invError || !inventory) throw new Error('Product not found in branch inventory');
-    if (inventory.stock_quantity <= 0) return res.status(400).json({ error: 'Out of stock!' });
-
-    const { data: sale, error: saleError } = await supabase
-      .from('sales')
-      .insert([{ 
-        product_id: productId, 
-        employee_id: employeeId, 
-        branch_id: branchId,
-        sold_price: inventory.branch_price,
-        product_name_at_sale: productName
-      }])
-      .select().single();
-    if (saleError) throw saleError;
+    if (!isGrilled && inventory.stock_quantity <= 0) return res.status(400).json({ error: 'Out of stock!' });
     
     if (isGrilled) {
       const { error: grillError } = await supabase.rpc('adjust_grill_count', {
@@ -75,6 +68,18 @@ router.post('/sale', async (req, res) => {
       });
       if (stockError) throw stockError;
     }
+
+    const { data: sale, error: saleError } = await supabase
+      .from('sales')
+      .insert([{ 
+        product_id: productId, 
+        employee_id: employeeId, 
+        branch_id: branchId,
+        sold_price: inventory.branch_price,
+        product_name_at_sale: productName
+      }])
+      .select().single();
+    if (saleError) throw saleError;
     eventBus.emit('branch:update', { branchId, type: 'sale', timestamp: new Date().toISOString() });
     res.status(201).json(sale);
   } catch (error: any) {

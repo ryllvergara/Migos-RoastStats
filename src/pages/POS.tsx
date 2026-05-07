@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { AppConfig, executeSale, undoLastSale } from "../patterns/index";
-import { Undo2, Flame, Loader2, RefreshCw, SaveAll } from "lucide-react";
+import { Undo2, Flame, RefreshCw, SaveAll } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import logoImage from "@/assets/logoImage.png";
 
@@ -30,13 +30,14 @@ const UI_COLORS = [
 export function GrillSidePOS() {
   const [menuItems, setMenuItems] = useState<Product[]>([]);
   const [grillCount, setGrillCount] = useState<Record<string, number>>({});
+  const [branchStocks, setBranchStocks] = useState<Record<string, number>>({});
   const [recentSales, setRecentSales] = useState<SaleItem[]>([]);
   const [totalRevenue, setTotalRevenue] = useState(0);
   const [loading, setLoading] = useState(true);
   const config = AppConfig.getInstance();
 
   const syncBranchData = async (showLoader = false) => {
-    const currentBranchId = AppConfig.getInstance().branchId
+    const currentBranchId = config.branchId
     if (!currentBranchId) return; 
     try {
       if (showLoader) setLoading(true);
@@ -73,6 +74,10 @@ export function GrillSidePOS() {
       const counts: Record<string, number> = {};
       sync.grillInventory.forEach((item: any) => counts[item.product_id] = item.current_count);
       setGrillCount(counts);
+
+      const stockLevels: Record<string, number> = {};
+      sync.branchStocks.forEach((item: any) => stockLevels[item.product_id] = item.stock_quantity);
+      setBranchStocks(stockLevels);
     } catch (err) {
       console.error("Sync Error:", err);
     } finally {
@@ -138,6 +143,11 @@ export function GrillSidePOS() {
   };
 
   const adjustGrill = async (productId: string, delta: number) => {
+    const currentStock = branchStocks[productId] || 0;
+    
+    if (grillCount[productId] === 0 && delta < 0 ) return;
+    if (delta > 0 && currentStock <= 0) return; 
+
     setGrillCount(prev => ({ ...prev, [productId]: Math.max(0, (prev[productId] || 0) + delta) }));
     
     try {
@@ -146,6 +156,7 @@ export function GrillSidePOS() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ productId, branchId: config.branchId, delta }),
       });
+      syncBranchData();
     } catch (err) { console.error(err); }
   };
 
@@ -192,63 +203,65 @@ export function GrillSidePOS() {
           <h2 className="font-bold text-[#212121]">Live Grill Status</h2>
         </div>
 
-        {loading && menuItems.length === 0 ? (
-          <div className="flex justify-center py-4">
-            <Loader2 className="animate-spin text-gray-300" />
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {menuItems
-              .filter((product: any) => product.is_grilled)
-              .map((product) => (
-                <div
-                  key={product.id}
-                  className="rounded-lg bg-gray-50 p-3 flex items-center justify-between border border-gray-200"
-                >
-                  <div>
-                    <p className="text-sm font-semibold text-gray-600">
-                      {product.product_name}
-                    </p>
-                    <span className="text-lg font-bold text-[#212121]">
-                      {grillCount[product.id] || 0}{" "}
-                      <span className="text-xs font-normal">on grill</span>
-                    </span>
-                  </div>
-                  <div className="flex gap-1">
-                    <button
-                      onClick={() => adjustGrill(product.id, -1)}
-                      className="h-10 w-10 rounded-lg bg-white border border-gray-200 shadow-sm text-xl hover:bg-gray-100"
-                    >
-                      −
-                    </button>
-                    <button
-                      onClick={() => adjustGrill(product.id, 1)}
-                      className="h-10 w-10 rounded-lg bg-[#D32F2F] text-white shadow-sm text-xl hover:bg-[#B71C1C]"
-                    >
-                      +
-                    </button>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {menuItems.filter(p => p.is_grilled).map((product) => {
+            const stock = branchStocks[product.id] || 0;
+            const onGrill = grillCount[product.id] || 0;
+            const isOutOfStock = stock <= 0;
+            return (
+              <div key={product.id} className={`rounded-lg p-3 flex items-center justify-between border ${isOutOfStock ? "bg-red-50 border-red-200" : "bg-gray-50 border-gray-200"}`}>
+                <div>
+                  <p className="text-sm font-semibold">{product.product_name}</p>
+                  <div className="flex gap-2 items-center">
+                    <span className="text-lg font-bold">{onGrill} <span className="text-xs font-normal">on grill</span></span>
+                    {stock <= 10 && stock > 0 && <span className="text-[10px] font-bold text-orange-600 bg-orange-100 px-2 rounded-full">Low: {stock}</span>}
+                    {isOutOfStock && <span className="text-[10px] font-bold text-red-600 bg-red-100 px-2 rounded-full">Freezer Empty</span>}
                   </div>
                 </div>
-              ))}
-          </div>
-        )}
+                <div className="flex gap-1">
+                  <button onClick={() => adjustGrill(product.id, -1)} className="h-10 w-10 rounded-lg bg-white border border-gray-200 shadow-sm hover:bg-gray-100">−</button>
+                  <button 
+                    disabled={isOutOfStock}
+                    onClick={() => adjustGrill(product.id, 1)} 
+                    className={`h-10 w-10 rounded-lg text-white ${isOutOfStock ? "bg-gray-300 cursor-not-allowed" : "bg-[#D32F2F] hover:bg-[#B71C1C]"}`}
+                  > + </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
       </div>
 
       {/* Main Menu Grid */}
       <div className="mb-6 grid grid-cols-2 md:grid-cols-4 gap-4">
         {menuItems.map((item, index) => {
           const design = UI_COLORS[index % UI_COLORS.length];
-          const isOutOfStock = item.is_grilled && (grillCount[item.id] || 0) <= 0;
+          const onGrill = grillCount[item.id] || 0;
+          const stock = branchStocks[item.id] || 0;
+          const cannotSell = item.is_grilled ? onGrill <= 0 : stock <= 0;
+          const outOfStock = stock <= 0;
+
+          let statusLabel = `₱${Number(item.product_price).toFixed(2)}`;
+          if (item.is_grilled) {
+            if (onGrill > 0) {
+              statusLabel = `₱${Number(item.product_price).toFixed(2)}`;
+            } else {
+              statusLabel = outOfStock ? "OUT OF STOCK" : "NONE ON GRILL";
+            }
+          } else if (outOfStock) {
+            statusLabel = "OUT OF STOCK";
+          }
 
           return (
             <button
               key={item.id}
-              disabled={isOutOfStock}
+              disabled={cannotSell}
               onClick={() => handleSale(item)}
-              className={`${design.color} ${design.hover} h-32 rounded-xl text-white shadow-md transition-all flex flex-col items-center justify-center p-2 ${isOutOfStock ? 'opacity-30 cursor-not-allowed grayscale' : 'active:scale-95'}`}
+              className={`${design.color} ${design.hover} h-32 rounded-xl text-white shadow-md transition-all flex flex-col items-center justify-center p-2 
+                ${cannotSell ? 'opacity-30 cursor-not-allowed grayscale' : 'active:scale-95'}`}
             >
               <p className="font-bold text-center leading-tight mb-1">{item.product_name}</p>
-              <p className="text-sm opacity-90">{isOutOfStock ? "NONE ON GRILL" : `₱${Number(item.product_price).toFixed(2)}`}</p>
+              <p className="text-sm opacity-90">{statusLabel}</p>
             </button>
           );
         })}
