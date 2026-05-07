@@ -15,6 +15,7 @@ router.get('/sync/:branchId', async (req, res) => {
       .from('branch_inventory')
       .select('product_id, stock_quantity')
       .eq('branch_id', branchId)
+      .eq('is_deleted', false)
     if (stocksError) throw stocksError;
     const { data: salesData, error: salesError } = await supabase
       .from('sales')
