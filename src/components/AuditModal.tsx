@@ -157,9 +157,15 @@ export function AuditModal({ branchId, branchName, initialData, onClose, onFinal
                       <td className="px-4 py-3 text-center text-red-500 font-medium">
                         {p.wastage > 0 ? `${p.wastage}` : "0"}
                       </td>
-                      <td className="px-4 py-3 text-center text-red-500 font-medium">
-                        {p.remainingStocks > 0 ? `${p.remainingStocks}` : "0"}
-                      </td>
+                      {p.remainingStocks > 10 ? 
+                        <td className="px-4 py-3 text-center text-green-700 font-medium">
+                          {p.remainingStocks}
+                        </td> 
+                        : 
+                        <td className="px-4 py-3 text-center text-red-500 font-medium">
+                          {p.remainingStocks}
+                        </td> 
+                      }
                       <td className="px-4 py-3 text-right text-gray-500">₱{p.pricePerUnit.toFixed(2)}</td>
                       <td className="px-4 py-3 text-right font-bold text-gray-900">₱{p.revenue.toFixed(2)}</td>
                     </tr>
