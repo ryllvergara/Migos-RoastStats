@@ -9,8 +9,9 @@ import {
   Loader2 
 } from "lucide-react";
 import { AppConfig } from "@/patterns/index";
+import { calculateAuditTotals } from "./utils/CalculateAuditTotals";
 
-interface AuditProduct {
+export interface AuditProduct {
   name: string;
   unitsSold: number;
   pricePerUnit: number;
@@ -26,17 +27,20 @@ interface Staff {
 interface AuditModalProps {
   branchId: string;
   branchName: string;
+  initialData?: { products: AuditProduct[]; employees: Staff[] };
   onClose: () => void;
   onFinalize: () => void;
 }
 
-export function AuditModal({ branchId, branchName, onClose, onFinalize }: AuditModalProps) {
-  const [loading, setLoading] = useState(true);
+export function AuditModal({ branchId, branchName, initialData, onClose, onFinalize }: AuditModalProps) {
+  const [loading, setLoading] = useState(!initialData);
   const [submitting, setSubmitting] = useState(false);
-  const [data, setData] = useState<{ products: AuditProduct[]; employees: Staff[]; totalExpected: number }>({
-    products: [],
-    employees: [],
-    totalExpected: 0,
+  const [data, setData] = useState(() => {
+    if (initialData) {
+      const { products, totalExpected } = calculateAuditTotals(initialData.products);
+      return { products, employees: initialData.employees, totalExpected };
+    }
+    return { products: [], employees: [], totalExpected: 0 };
   });
   const [actualCash, setActualCash] = useState<string>("");
   const config = AppConfig.getInstance();
