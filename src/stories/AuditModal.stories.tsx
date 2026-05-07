@@ -1,13 +1,17 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import { AuditModal } from '../AuditModal';
+import { AuditModal } from '../components/AuditModal';
 
 const meta: Meta<typeof AuditModal> = {
   title: 'Components/AuditModal',
   component: AuditModal,
   tags: ['autodocs'],
-  parameters: {
-    layout: 'centered',
-  },
+  decorators: [
+    (Story) => (
+      <div style={{ padding: '5rem', background: '#f8fafc', minHeight: '700px' }}>
+        <Story />
+      </div>
+    ),
+  ],
   argTypes: {
     onClose: { action: 'closed' },
     onFinalize: { action: 'finalized' },

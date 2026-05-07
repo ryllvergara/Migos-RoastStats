@@ -1,7 +1,6 @@
-// StatCard.stories.tsx
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { TrendingUp, DollarSign, MapPin, ShoppingBag } from 'lucide-react';
-import { StatCard } from '../StatCard';
+import { StatCard } from '../../components/analytics/StatCard';
 
 const meta: Meta<typeof StatCard> = {
   title: 'Components/StatCard',

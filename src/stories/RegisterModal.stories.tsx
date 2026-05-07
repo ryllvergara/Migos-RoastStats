@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import { RegisterModal } from '../RegisterModal';
+import { RegisterModal } from '../components/RegisterModal';
 
 const meta: Meta<typeof RegisterModal> = {
   title: 'Components/RegisterModal',
