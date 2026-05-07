@@ -43,6 +43,7 @@ router.get('/branches', async (_req, res) => {
     const { data: auditedBranches, error: branchError } = await supabase
       .from('branches')
       .select('*')
+      .eq('removed', false)
       .eq('last_audit_status', 'audited')
       .order('branch_name', { ascending: true })
     if (branchError) throw branchError;
@@ -78,6 +79,7 @@ router.post("/login", async (req: Request, res: Response) => {
       .select("*")
       .eq("user_name", userName)
       .eq("user_role", userRole)
+      .eq("removed", false)
       .single();
 
     if (userErr || !user) return res.status(401).json({ error: "User not found" });
