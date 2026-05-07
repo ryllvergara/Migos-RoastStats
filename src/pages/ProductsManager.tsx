@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Package, Plus, Edit2, Save, X, Loader2 } from "lucide-react";
+import { Package, Plus, Edit2, Save, X, Loader2, Trash2 } from "lucide-react";
 import logoImage from "@/assets/logoImage.png";
 import { AppConfig } from "../patterns/index";
 
@@ -142,8 +142,8 @@ export function ProductsManager() {
       return;
 
     try {
-      const res = await fetch(`${config.baseUrl}/products/inventory/${id}`, {
-        method: "DELETE",
+      const res = await fetch(`${config.baseUrl}/products/inventory/delete/${id}`, {
+        method: "PATCH",
         headers: {
           "Content-Type": "application/json",
         },
@@ -295,7 +295,10 @@ export function ProductsManager() {
                           </div>
                         </div>
                       </div>
-                      <button onClick={() => startEdit(item)} className="p-3 bg-gray-50 text-gray-400 hover:text-[#D32F2F] rounded-xl transition-all"><Edit2 className="h-5 w-5" /></button>
+                      <div className="flex gap-2">
+                        <button onClick={() => startEdit(item)} className="p-3 bg-gray-50 text-gray-400 hover:text-[#D32F2F] rounded-xl transition-all"><Edit2 className="h-5 w-5" /></button>
+                        <button onClick={() => deleteProduct(item.id)} className="p-3 bg-gray-50 text-gray-400 hover:text-red-600 rounded-xl transition-all"><Trash2 className="h-5 w-5" /></button>
+                      </div>
                     </>
                   )}
                 </div>

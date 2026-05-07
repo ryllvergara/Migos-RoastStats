@@ -19,6 +19,7 @@ router.get('/branch/:branchId', async (req, res) => {
       )
     `)
     .eq('branch_id', branchId)
+    .eq('is_deleted', false)
     .order('id', { ascending: true });
 
   if (error) return res.status(500).json({ error: error.message });
@@ -103,17 +104,20 @@ router.patch('/update-stock', async (req, res) => {
   res.json({ success: true });
 });
 
-// DELETE product
-router.delete('/:id', async (req, res) => {
-  const { id } = req.params;
-  const { error } = await supabase.from('products').delete().eq('id', id);
+// PATCH soft delete product
+router.patch('/inventory/delete/:inventoryId', async (req, res) => {
+  const { inventoryId } = req.params;
 
-  if (error) {
-    console.error("Supabase Delete Error:", error);
-    return res.status(500).json({ error: error.message });
-  }
+  const { data, error } = await supabase
+    .from('branch_inventory')
+    .update({ is_deleted: true })
+    .eq('id', inventoryId)
+    .select()
+    .single();
 
-  res.status(204).send(); 
+  if (!data) return res.status(404).json({ error: "Product not found" });
+  if (error) return res.status(500).json({ error: error.message });
+  res.json({ success: true });
 });
 
 export default router;
