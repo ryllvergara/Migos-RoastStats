@@ -110,9 +110,19 @@ export function Management() {
     if (!deleteTarget) return;
     const endpoint = deleteTarget.type === 'branch' ? 'branches' : 'users';
     try {
-      await fetch(`${config.baseUrl}/management/${endpoint}/${deleteTarget.id}`, { method: 'DELETE' });
-      fetchData();
-      setIsDeleteDialogOpen(false);
+      const res = await fetch(`${config.baseUrl}/management/${endpoint}/delete/${deleteTarget.id}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
+      if (res.ok) {
+        fetchData();
+        setIsDeleteDialogOpen(false);
+      } else {
+        const errorData = await res.json();
+        alert(`Delete failed: ${errorData.error || "Server error"}`);
+      } 
     } catch (err) { console.error(err); }
   };
 

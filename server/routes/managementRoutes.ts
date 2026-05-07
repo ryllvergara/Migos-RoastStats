@@ -11,6 +11,7 @@ router.get('/branches', async (_req, res) => {
   const { data, error } = await supabase
     .from('branches')
     .select('*')
+    .eq('removed', false)
     .order('branch_name', { ascending: true });
   if (error) return res.status(500).json({ error: error.message });
   res.json(data);
@@ -41,14 +42,18 @@ router.patch('/branches/:id', async (req, res) => {
   res.json(data[0]);
 });
 // Delete branch
-router.delete('/branches/:id', async (req, res) => {
+router.patch('/branches/delete/:id', async (req, res) => {
   const { id } = req.params;
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from('branches')
-    .delete()
-    .eq('id', id);
+    .update({ removed: true })
+    .eq('id', id)
+    .select()
+    .single();
+  
+  if (!data) return res.status(404).json({ error: "Branch not found" });
   if (error) return res.status(500).json({ error: error.message });
-  res.status(204).send();
+  res.json({ success: true });
 });
 
 // STAFF ROUTES
@@ -59,6 +64,7 @@ router.get("/users", async (_req, res) => {
     .from("users")
     .select("id, user_name, user_role")
     .eq('user_role', 'employee')
+    .eq('removed', false)
     .order('user_name', { ascending: true });
   if (error) return res.status(500).json({ error: error.message });
   res.json(data);
@@ -97,6 +103,20 @@ router.delete('/users/:id', async (req, res) => {
     .eq('id', id);
   if (error) return res.status(500).json({ error: error.message });
   res.status(204).send();
+});
+
+router.patch('/users/delete/:id', async (req, res) => {
+  const { id } = req.params;
+  const { data, error } = await supabase
+    .from('users')
+    .update({ removed: true })
+    .eq('id', id)
+    .select()
+    .single();
+  
+  if (!data) return res.status(404).json({ error: "User not found" });
+  if (error) return res.status(500).json({ error: error.message });
+  res.json({ success: true });
 });
 
 export default router;
