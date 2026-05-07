@@ -14,27 +14,33 @@ import { AuditLogsSection } from '@/components/analytics/AuditLogsSection';
 
 import logoImage from '@/assets/logoImage.png';
 
-export function Analytics() {
+export function Analytics({ initialData }: { initialData?: any }) {
   const [weekOffset, setWeekOffset] = useState(0);
-  const [data, setData] = useState<any>(null);
+  const [data, setData] = useState<any>(initialData || null);
   const [viewType, setViewType] = useState<'revenue' | 'quantity'>('revenue');
   const [showLogs, setShowLogs] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!initialData);
   const config = AppConfig.getInstance();
 
   const start = startOfWeek(subWeeks(new Date(), weekOffset), { weekStartsOn: 1 });
   const end = endOfWeek(subWeeks(new Date(), weekOffset), { weekStartsOn: 1 });
 
   useEffect(() => {
+    if (initialData && weekOffset === 0) return;
     const fetchData = async () => {
-      setLoading(true);
-      const res = await fetch(`${config.baseUrl}/analytics/dashboard?weekOffset=${weekOffset}`);
-      const json = await res.json();
-      setData(json);
-      setLoading(false);
+      try {
+        setLoading(true);
+        const res = await fetch(`${config.baseUrl}/analytics/dashboard?weekOffset=${weekOffset}`);
+        const json = await res.json();
+        setData(json);
+      } catch (error) {
+        console.error("Failed to fetch analytics:", error);
+      } finally {
+        setLoading(false);
+      }   
     };
     fetchData();
-  }, [weekOffset]);
+  }, [weekOffset, initialData]);
 
   // Aggregate Data for Branch Bar Chart
   const branchChartData = useMemo(() => {
@@ -118,7 +124,7 @@ export function Analytics() {
     return sorted.length > 0 ? sorted[0][0] : 'N/A';
   }, [data]);
 
-  if (loading) return <div className="p-10 text-center font-bold">Loading Analytics...</div>;
+  if (loading || !data) return <div className="p-10 text-center font-bold">Loading Analytics...</div>;
 
   return (
     <div className="mx-auto space-y-8 bg-gray-50 min-h-screen p-8 md:p-6">
