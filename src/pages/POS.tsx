@@ -36,7 +36,8 @@ export function GrillSidePOS() {
   const config = AppConfig.getInstance();
 
   const syncBranchData = async (showLoader = false) => {
-    if (!config.branchId) return; 
+    const currentBranchId = AppConfig.getInstance().branchId
+    if (!currentBranchId) return; 
     try {
       if (showLoader) setLoading(true);
       const [prodRes, syncRes] = await Promise.all([
