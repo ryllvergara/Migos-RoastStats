@@ -38,7 +38,7 @@ router.post('/branch-assign', async (req, res) => {
     let { data: product, error: pError } = await supabase
       .from('products')
       .select('*')
-      .ilike('product_name', product_name)
+      .eq('product_name', product_name.trim())
       .maybeSingle();
 
     if (pError) throw pError;
@@ -46,12 +46,12 @@ router.post('/branch-assign', async (req, res) => {
     if (!product) {
       const insertResult = await supabase
         .from('products')
-        .insert([{ product_name, is_grilled }])
+        .insert([{ product_name: product_name.trim(), is_grilled }])
         .select()
         .single();
 
-      product = insertResult.data;
       if (insertResult.error) throw insertResult.error;
+      product = insertResult.data;
     }
 
     const { data: inventory, error: iError } = await supabase
