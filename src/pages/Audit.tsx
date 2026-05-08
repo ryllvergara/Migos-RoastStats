@@ -6,7 +6,7 @@ import {
   Loader2,
   CheckCircle2
 } from "lucide-react";
-import { AuditModal } from "../components/AuditModal";
+import { AuditModal } from "../components/audit/AuditModal";
 import logoImage from "@/assets/logoImage.png";
 import { AppConfig } from "../patterns/index";
 

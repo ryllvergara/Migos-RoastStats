@@ -9,7 +9,7 @@ import {
   Loader2 
 } from "lucide-react";
 import { AppConfig } from "@/patterns/index";
-import { calculateAuditTotals } from "./utils/CalculateAuditTotals";
+import { calculateAuditTotals } from "../utils/CalculateAuditTotals";
 
 export interface AuditProduct {
   name: string;

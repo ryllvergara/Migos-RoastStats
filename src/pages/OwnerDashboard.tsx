@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { AppConfig, resolveCardView } from '../patterns/index';
-import { AuditModal } from '../components/AuditModal';
+import { AuditModal } from '../components/audit/AuditModal';
 import { Clock, AlertCircle, TrendingUp, Loader2 } from 'lucide-react';
 import logoImage from '@/assets/logoImage.png';
 
