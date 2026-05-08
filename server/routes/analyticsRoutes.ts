@@ -5,10 +5,15 @@ import { startOfWeek, endOfWeek, subWeeks, formatISO } from 'date-fns';
 const router = express.Router();
 
 router.get('/dashboard', async (req: any, res: any) => {
-  const { weekOffset = 0 } = req.query;
-  
+  const { weekOffset } = req.query;
+  const offset = Number(weekOffset);
+
+  if (weekOffset && isNaN(offset)) {
+    return res.status(400).json({ error: "weekOffset must be a valid number" });
+  }
+
   // Calculate date range for the target week 
-  const targetDate = subWeeks(new Date(), Number(weekOffset));
+  const targetDate = subWeeks(new Date(), offset || 0);
   const start = formatISO(startOfWeek(targetDate, { weekStartsOn: 1 }));
   const end = formatISO(endOfWeek(targetDate, { weekStartsOn: 1 }));
   
