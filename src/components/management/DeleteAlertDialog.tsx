@@ -13,20 +13,23 @@ interface DeleteAlertDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onConfirm: () => void;
+  type: 'branch' | 'staff' | undefined;
 }
 
 export function DeleteAlertDialog({
   open,
   onOpenChange,
   onConfirm,
+  type,
 }: DeleteAlertDialogProps) {
+  const itemLabel = type === 'branch' ? 'branch' : 'user';
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle>Confirm Deletion</AlertDialogTitle>
           <AlertDialogDescription>
-            Are you sure you want to delete this item? This action cannot be undone.
+            Are you sure you want to delete this {itemLabel}? This action cannot be undone.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>

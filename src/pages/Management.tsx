@@ -261,6 +261,7 @@ export function Management() {
         open={isDeleteDialogOpen}
         onOpenChange={setIsDeleteDialogOpen}
         onConfirm={handleConfirmDelete}
+        type={deleteTarget?.type}
       />
 
       <RegisterModal
