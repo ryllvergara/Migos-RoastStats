@@ -1,19 +1,11 @@
 import { useState, useEffect } from "react";
 import { AppConfig, executeSale, undoLastSale } from "../patterns/index";
-import { Undo2, Flame, RefreshCw, SaveAll } from "lucide-react";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import logoImage from "@/assets/logoImage.png";
-
-interface SaleItem {
-  id: string;
-  productId: string;
-  item: string;
-  quantity: number;
-  price: number;
-  timestamp: Date;
-  recordedBy: string;
-  isGrilled: boolean;
-}
+import { POSHeader } from '@/components/pos/POSHeader';
+import { GrillStatusPanel } from '@/components/pos/GrillStatusPanel';
+import { MenuGrid } from '@/components/pos/MenuGrid';
+import { CloseShiftDialog } from '@/components/pos/CloseShiftDialog';
+import { RecentSalesList } from '@/components/pos/RecentSalesList';
+import { SaleItem } from '@/components/pos/RecentSaleItem';
 
 interface Product {
   id: string;
@@ -21,11 +13,6 @@ interface Product {
   product_price: number;
   is_grilled: boolean;
 }
-
-const UI_COLORS = [
-  { color: "bg-[#D32F2F]", hover: "hover:bg-[#B71C1C]" },
-  { color: "bg-[#212121]", hover: "hover:bg-[#424242]" },
-];
 
 export function GrillSidePOS() {
   const [menuItems, setMenuItems] = useState<Product[]>([]);
@@ -50,89 +37,95 @@ export function GrillSidePOS() {
 
       const products = await prodRes.json();
       const flatProducts = products.map((inv: any) => ({
-        id: inv.products.id,           
-        inventoryId: inv.id,           
+        id: inv.products.id,
+        inventoryId: inv.id,
         product_name: inv.products.product_name,
         product_price: inv.branch_price,
-        is_grilled: inv.products.is_grilled
+        is_grilled: inv.products.is_grilled,
       }));
       const sync = await syncRes.json();
 
       setMenuItems(flatProducts);
       setTotalRevenue(sync.totalRevenue || 0);
-      setRecentSales(sync.history.map((s: any) => ({
-        id: s.id,
-        productId: s.product_id,
-        item: s.products?.product_name,
-        price: s.sold_price,
-        recordedBy: s.users?.user_name,
-        timestamp: new Date(s.sold_at),
-        isGrilled: s.products?.is_grilled
-      })));
+      setRecentSales(
+        sync.history.map((s: any) => ({
+          id: s.id,
+          productId: s.product_id,
+          item: s.products?.product_name,
+          price: s.sold_price,
+          recordedBy: s.users?.user_name,
+          timestamp: new Date(s.sold_at),
+          isGrilled: s.products?.is_grilled,
+        }))
+      );
 
-      // Map grill inventory 
       const counts: Record<string, number> = {};
-      sync.grillInventory.forEach((item: any) => counts[item.product_id] = item.current_count);
+      sync.grillInventory.forEach((item: any) => (counts[item.product_id] = item.current_count));
       setGrillCount(counts);
 
       const stockLevels: Record<string, number> = {};
-      sync.branchStocks.forEach((item: any) => stockLevels[item.product_id] = item.stock_quantity);
+      sync.branchStocks.forEach(
+        (item: any) => (stockLevels[item.product_id] = item.stock_quantity)
+      );
       setBranchStocks(stockLevels);
     } catch (err) {
-      console.error("Sync Error:", err);
+      console.error('Sync Error:', err);
     } finally {
       setLoading(false);
     }
   };
 
-  // Sync on load + every 5 seconds
   useEffect(() => {
     syncBranchData(true);
     const interval = setInterval(() => syncBranchData(false), 5000);
     return () => clearInterval(interval);
   }, []);
 
-  const handleSale = async (item: any) => {
+  const handleSale = async (item: Product) => {
     if (item.is_grilled) {
-      setGrillCount(prev => ({ ...prev, [item.id]: Math.max(0, (prev[item.id] || 0) - 1) }));
+      setGrillCount((prev) => ({ ...prev, [item.id]: Math.max(0, (prev[item.id] || 0) - 1) }));
     }
-
     try {
-      await executeSale({ item, employeeId: config.employeeId!, branchId: config.branchId!, baseUrl: config.baseUrl });
+      await executeSale({
+        item,
+        employeeId: config.employeeId!,
+        branchId: config.branchId!,
+        baseUrl: config.baseUrl,
+      });
       syncBranchData();
-    } catch (err) { 
+    } catch (err) {
       if (item.is_grilled) {
-          setGrillCount(prev => ({ ...prev, [item.id]: (prev[item.id] || 0) + 1 }));
+        setGrillCount((prev) => ({ ...prev, [item.id]: (prev[item.id] || 0) + 1 }));
       }
       console.error(err);
     }
   };
 
-  const handleUndo = async (sale: any) => {
-    setRecentSales(prev => prev.filter(s => s.id !== sale.id));
+  const handleUndo = async (sale: SaleItem) => {
+    setRecentSales((prev) => prev.filter((s) => s.id !== sale.id));
     try {
-      await undoLastSale(sale.id);      
+      await undoLastSale(sale.id);
       syncBranchData();
-    } catch (err) { console.error(err); syncBranchData(); }
+    } catch (err) {
+      console.error(err);
+      syncBranchData();
+    }
   };
 
   const handleCloseShift = async () => {
     setLoading(true);
     try {
       const res = await fetch(`${config.baseUrl}/close-shift`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ branchId: config.branchId, employeeId: config.employeeId }),
       });
-
       const data = await res.json();
-
       if (res.ok) {
-        alert("Shift closed! Sales archived for audit.");
-        
+        alert('Shift closed! Sales archived for audit.');
         if (data.shouldLogout) {
-          sessionStorage.clear(); 
-          window.location.href = "/";
+          sessionStorage.clear();
+          window.location.href = '/';
         }
       }
     } catch (err) {
@@ -144,198 +137,52 @@ export function GrillSidePOS() {
 
   const adjustGrill = async (productId: string, delta: number) => {
     const currentStock = branchStocks[productId] || 0;
-    
-    if (grillCount[productId] === 0 && delta < 0 ) return;
-    if (delta > 0 && currentStock <= 0) return; 
+    if (grillCount[productId] === 0 && delta < 0) return;
+    if (delta > 0 && currentStock <= 0) return;
 
-    setGrillCount(prev => ({ ...prev, [productId]: Math.max(0, (prev[productId] || 0) + delta) }));
-    
+    setGrillCount((prev) => ({ ...prev, [productId]: Math.max(0, (prev[productId] || 0) + delta) }));
     try {
       await fetch(`${config.baseUrl}/grill-adjust`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ productId, branchId: config.branchId, delta }),
       });
       syncBranchData();
-    } catch (err) { console.error(err); }
+    } catch (err) {
+      console.error(err);
+    }
   };
+
+  const grilledProducts = menuItems.filter((p) => p.is_grilled);
 
   return (
     <div className="min-h-screen bg-gray-50 p-4 md:p-6">
-      {/* Header */}
-      <div className="mb-6 flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <img
-            src={logoImage}
-            alt="Migo's Lechon"
-            className="h-16 w-16 rounded-full"
-          />
-          <div>
-            <h1 className="text-xl font-bold text-[#212121]">Grill Side POS</h1>
-            <p className="text-sm text-gray-600">
-              {config.branchName} • {config.userName}
-            </p>
-          </div>
-        </div>
-        <div className="flex items-center gap-4">
-          <button
-            onClick={() => syncBranchData(true)}
-            className="p-2 text-gray-400 hover:text-[#D32F2F] transition-colors"
-            title="Sync Menu"
-          >
-            <RefreshCw className={`h-5 w-5 ${loading ? "animate-spin" : ""}`} />
-          </button>
-          <div className="text-right">
-            <p className="text-xs font-bold uppercase tracking-wider text-gray-400">
-              Total Revenue
-            </p>
-            <p className="text-2xl font-black text-[#D32F2F]">
-              ₱{totalRevenue.toFixed(2)}
-            </p>
-          </div>
-        </div>
-      </div>
+      <POSHeader
+        branchName={config.branchName}
+        userName={config.userName}
+        totalRevenue={totalRevenue}
+        loading={loading}
+        onSync={() => syncBranchData(true)}
+      />
 
-      {/* Live Grill Status */}
-      <div className="mb-6 rounded-xl bg-white p-5 shadow-sm border border-gray-100">
-        <div className="mb-4 flex items-center gap-2">
-          <Flame className="h-5 w-5 text-[#D32F2F]" />
-          <h2 className="font-bold text-[#212121]">Live Grill Status</h2>
-        </div>
+      <GrillStatusPanel
+        grilledProducts={grilledProducts}
+        grillCount={grillCount}
+        branchStocks={branchStocks}
+        onDecrement={(id) => adjustGrill(id, -1)}
+        onIncrement={(id) => adjustGrill(id, 1)}
+      />
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {menuItems.filter(p => p.is_grilled).map((product) => {
-            const stock = branchStocks[product.id] || 0;
-            const onGrill = grillCount[product.id] || 0;
-            const isOutOfStock = stock <= 0;
-            return (
-              <div key={product.id} className={`rounded-lg p-3 flex items-center justify-between border ${isOutOfStock ? "bg-red-50 border-red-200" : "bg-gray-50 border-gray-200"}`}>
-                <div>
-                  <p className="text-sm font-semibold">{product.product_name}</p>
-                  <div className="flex gap-2 items-center">
-                    <span className="text-lg font-bold">{onGrill} <span className="text-xs font-normal">on grill</span></span>
-                    {stock <= 10 && stock > 0 && <span className="text-[10px] font-bold text-orange-600 bg-orange-100 px-2 rounded-full">Low: {stock}</span>}
-                    {isOutOfStock && <span className="text-[10px] font-bold text-red-600 bg-red-100 px-2 rounded-full">Freezer Empty</span>}
-                  </div>
-                </div>
-                <div className="flex gap-1">
-                  <button onClick={() => adjustGrill(product.id, -1)} className="h-10 w-10 rounded-lg bg-white border border-gray-200 shadow-sm hover:bg-gray-100">−</button>
-                  <button 
-                    disabled={isOutOfStock}
-                    onClick={() => adjustGrill(product.id, 1)} 
-                    className={`h-10 w-10 rounded-lg text-white ${isOutOfStock ? "bg-gray-300 cursor-not-allowed" : "bg-[#D32F2F] hover:bg-[#B71C1C]"}`}
-                  > + </button>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
+      <MenuGrid
+        menuItems={menuItems}
+        grillCount={grillCount}
+        branchStocks={branchStocks}
+        onSale={handleSale}
+      />
 
-      {/* Main Menu Grid */}
-      <div className="mb-6 grid grid-cols-2 md:grid-cols-4 gap-4">
-        {menuItems.map((item, index) => {
-          const design = UI_COLORS[index % UI_COLORS.length];
-          const onGrill = grillCount[item.id] || 0;
-          const stock = branchStocks[item.id] || 0;
-          const cannotSell = item.is_grilled ? onGrill <= 0 : stock <= 0;
-          const outOfStock = stock <= 0;
+      <CloseShiftDialog branchName={config.branchName} onConfirm={handleCloseShift} />
 
-          let statusLabel = `₱${Number(item.product_price).toFixed(2)}`;
-          if (item.is_grilled) {
-            if (onGrill > 0) {
-              statusLabel = `₱${Number(item.product_price).toFixed(2)}`;
-            } else {
-              statusLabel = outOfStock ? "OUT OF STOCK" : "NONE ON GRILL";
-            }
-          } else if (outOfStock) {
-            statusLabel = "OUT OF STOCK";
-          }
-
-          return (
-            <button
-              key={item.id}
-              disabled={cannotSell}
-              onClick={() => handleSale(item)}
-              className={`${design.color} ${design.hover} h-32 rounded-xl text-white shadow-md transition-all flex flex-col items-center justify-center p-2 
-                ${cannotSell ? 'opacity-30 cursor-not-allowed grayscale' : 'active:scale-95'}`}
-            >
-              <p className="font-bold text-center leading-tight mb-1">{item.product_name}</p>
-              <p className="text-sm opacity-90">{statusLabel}</p>
-            </button>
-          );
-        })}
-      </div>
-
-      {/* Close Shift */}
-      <AlertDialog>
-        <AlertDialogTrigger asChild>
-          <button className="mb-6 w-full rounded-xl border-2 border-dashed border-gray-300 bg-transparent py-4 text-gray-500 hover:border-[#D32F2F] hover:text-[#D32F2F] transition-all group">
-            <div className="flex items-center justify-center gap-2">
-              <SaveAll className="h-5 w-5 group-hover:animate-pulse" />
-              <span className="font-semibold">Close Shift & Submit for Audit</span>
-            </div>
-          </button>
-        </AlertDialogTrigger>
-        <AlertDialogContent className="rounded-2xl border-none shadow-2xl">
-          <AlertDialogHeader>
-            <AlertDialogTitle className="text-[#212121]">Finalize Daily Sales?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This will archive all current sales from <strong>{config.branchName}</strong> and notify the owner for audit. You won't be able to undo transactions after this.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel className="rounded-xl border-gray-200">Cancel</AlertDialogCancel>
-            <AlertDialogAction 
-              onClick={handleCloseShift}
-              className="rounded-xl bg-[#D32F2F] hover:bg-[#B71C1C] text-white"
-            >
-              Confirm Close Shift
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      {/* Recent Sales */}
-      <div className="rounded-xl bg-white p-5 shadow-sm border border-gray-100">
-        <h2 className="mb-4 font-bold text-[#212121]">Recent Sales (Last 5)</h2>
-        {recentSales.length === 0 ? (
-          <div className="text-center py-8 border-2 border-dashed border-gray-50 rounded-lg">
-            <p className="text-gray-400">No transactions recorded yet</p>
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {recentSales.map((sale) => (
-              <div
-                key={sale.id}
-                className="flex items-center justify-between rounded-lg bg-gray-50 p-4 border border-gray-100"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="h-2 w-2 rounded-full bg-[#4CAF50]" />
-                  <div>
-                    <p className="font-bold text-[#212121]">{sale.item}</p>
-                    <p className="text-xs text-gray-400">
-                      {sale.timestamp.toLocaleTimeString([], {
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })}{" "}
-                      • {sale.recordedBy}{" "}
-                      • ₱{Number(sale.price).toFixed(2)}
-                    </p>
-                  </div>
-                </div>
-                <button
-                  onClick={() => handleUndo(sale)}
-                  className="flex items-center gap-1 rounded-lg bg-white px-4 py-2 text-sm font-semibold text-gray-600 border border-gray-200 hover:bg-red-50 hover:text-[#D32F2F] hover:border-red-100 transition-all shadow-sm"
-                >
-                  <Undo2 className="h-4 w-4" />
-                  <span>Undo</span>
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
+      <RecentSalesList sales={recentSales} onUndo={handleUndo} />
     </div>
   );
 }
