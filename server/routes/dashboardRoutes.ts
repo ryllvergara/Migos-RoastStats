@@ -21,6 +21,7 @@ router.get('/overview', async (_req, res) => {
     const { data: branches, error: bError } = await supabase
       .from('branches')
       .select('id, branch_name, created_at, last_audit_status')
+      .eq("removed", false)
       .order('branch_name', { ascending: true });   
     if (bError) throw bError;
 
