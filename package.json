@@ -79,6 +79,7 @@
     "@storybook/addon-docs": "^10.3.5",
     "@storybook/addon-vitest": "^10.3.5",
     "@storybook/react-vite": "^10.3.5",
+    "@storybook/test": "^8.6.15",
     "@tailwindcss/vite": "4.1.12",
     "@types/bcryptjs": "^3.0.0",
     "@types/cors": "^2.8.19",
@@ -95,6 +96,8 @@
     "@vitest/coverage-v8": "^4.1.4",
     "concurrently": "^9.2.1",
     "jest": "^30.3.0",
+    "msw": "^2.14.5",
+    "msw-storybook-addon": "^2.0.7",
     "playwright": "^1.59.1",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
@@ -123,5 +126,10 @@
     "overrides": {
       "vite": "6.3.5"
     }
+  },
+  "msw": {
+    "workerDirectory": [
+      "public"
+    ]
   }
 }
