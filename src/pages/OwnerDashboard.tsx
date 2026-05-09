@@ -12,8 +12,9 @@ export function OwnerDashboard() {
   const config = AppConfig.getInstance();
 
   const fetchData = async () => {
+    const baseUrl = AppConfig.getInstance().baseUrl;
     try {
-      const res = await fetch(`${config.baseUrl}/dashboard/overview`);
+      const res = await fetch(`${baseUrl}/dashboard/overview`);
       const data = await res.json();
       const formattedData = data.map((b: any) => ({
         ...b,
