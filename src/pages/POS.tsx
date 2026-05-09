@@ -24,13 +24,14 @@ export function GrillSidePOS() {
   const config = AppConfig.getInstance();
 
   const syncBranchData = async (showLoader = false) => {
-    const currentBranchId = config.branchId
+    const currentBranchId = AppConfig.getInstance().branchId
+    const baseUrl = AppConfig.getInstance().baseUrl
     if (!currentBranchId) return; 
     try {
       if (showLoader) setLoading(true);
       const [prodRes, syncRes] = await Promise.all([
-        fetch(`${config.baseUrl}/products/branch/${config.branchId}`),
-        fetch(`${config.baseUrl}/sync/${config.branchId}`)
+        fetch(`${baseUrl}/products/branch/${currentBranchId}`),
+        fetch(`${baseUrl}/sync/${currentBranchId }`)
       ]);
 
       if (!prodRes.ok || !syncRes.ok) throw new Error("Sync failed");
