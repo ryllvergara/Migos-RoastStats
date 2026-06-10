@@ -2,8 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router";
 import { LogIn, MapPin, Loader2 } from "lucide-react";
 import logoImage from "@/assets/logoImage.png";
-
-const baseUrl = `http://localhost:3000/api/auth`;
+import { AppConfig } from "../patterns/index";
 
 interface Branch {
   id: string;
@@ -19,11 +18,12 @@ export function AuthScreen() {
   const [userPin, setUserPin] = useState("");
   const [userRole, setUserRole] = useState<"employee" | "owner">("employee");
   const [branches, setBranches] = useState<Branch[]>([]);
+  const config = AppConfig.getInstance();
 
   useEffect(() => {
     const fetchBranches = async () => {
       try {
-        const response = await fetch(`${baseUrl}/branches`);
+        const response = await fetch(`${config.baseUrl}/auth/branches`);
         if (!response.ok) throw new Error("Failed to fetch branches");
         const data = await response.json();
         setBranches(data);
@@ -46,10 +46,10 @@ export function AuthScreen() {
     setLoading(true);
 
     try {
-      const response = await fetch(`${baseUrl}/login`, {
+      const response = await fetch(`${config.baseUrl}/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userName, userPin, userRole }),
+        body: JSON.stringify({ userName, userPin, userRole, branchId: selectedBranch }),
       });
 
       const result = await response.json();
@@ -59,9 +59,11 @@ export function AuthScreen() {
       }
 
       sessionStorage.clear();
+      sessionStorage.setItem("token", result.token);
       sessionStorage.setItem("userId", result.user.userId);
       sessionStorage.setItem("userName", result.user.userName);
       sessionStorage.setItem("userRole", result.user.userRole);
+      sessionStorage.setItem("shiftId", result.user.shiftId || "");
 
       if (userRole === "employee" && selectedBranch) {
         const branchInfo = branches.find((b) => b.id === selectedBranch);
@@ -160,10 +162,12 @@ export function AuthScreen() {
             <div className="space-y-3">
               <label className="block text-[#212121] mb-1 font-medium">Select Your Branch</label>
               {branches.length === 0 ? (
-                <p className="text-gray-400 text-sm italic">
-                  Loading branches...
-                </p>
-              ) : (
+                <div className="bg-gray-50 p-4 rounded-lg border-2 border-dashed border-gray-200">
+                    <p className="text-gray-500 text-sm text-center">
+                      No branches are currently available to start a shift.
+                    </p>
+                  </div>
+                ) : (
                 branches.map((branch) => (
                   <button
                     key={branch.id}

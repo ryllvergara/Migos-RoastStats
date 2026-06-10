@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { X, UserPlus, Shield, User, Lock, Loader2 } from "lucide-react";
+import { AppConfig } from "@/patterns/index";
 
 interface RegisterModalProps {
   isOpen: boolean;
@@ -11,6 +12,7 @@ export function RegisterModal({ isOpen, onClose }: RegisterModalProps) {
   const [userPin, setUserPin] = useState("");
   const [userRole, setUserRole] = useState<"employee" | "owner">("employee");
   const [loading, setLoading] = useState(false);
+  const config = AppConfig.getInstance();
 
   if (!isOpen) return null;
 
@@ -19,9 +21,12 @@ export function RegisterModal({ isOpen, onClose }: RegisterModalProps) {
     setLoading(true);
 
     try {
-      const response = await fetch("http://localhost:3000/api/auth/register", {
+      const response = await fetch(`${config.baseUrl}/auth/register`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${config.token}`
+        },
         body: JSON.stringify({ userName, userPin, userRole }),
       });
 

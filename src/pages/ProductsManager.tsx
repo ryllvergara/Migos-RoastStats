@@ -1,112 +1,126 @@
 import { useState, useEffect } from "react";
-import { Plus, Edit2, Trash2, Save, X, Loader2 } from "lucide-react";
-import logoImage from "@/assets/logoImage.png";
+import { Plus } from "lucide-react";
+import logoImage from "../assets/logoImage.png";
+import { AppConfig } from "../patterns/index";
+import { AddProductForm } from "../components/productsManager/AddProductForm";
+import { InventoryList } from "../components/productsManager/InventoryList";
 
-interface Product {
+interface InventoryItem {
   id: string;
-  product_name: string;
-  product_price: number;
-  is_grilled: boolean;
+  branch_price: number;
+  stock_quantity: number;
+  product_id: string;
+  products: {
+    id: string;
+    product_name: string;
+    is_grilled: boolean;
+  };
 }
 
-const UI_COLORS = [
-  { color: "bg-[#D32F2F]", hoverColor: "hover:bg-[#B71C1C]" },
-  { color: "bg-[#FFC107]", hoverColor: "hover:bg-[#FFA000]" },
-  { color: "bg-[#212121]", hoverColor: "hover:bg-[#424242]" },
-  { color: "bg-[#4CAF50]", hoverColor: "hover:bg-[#388E3C]" },
-  { color: "bg-[#2196F3]", hoverColor: "hover:bg-[#1976D2]" },
-];
-
-const API_URL = "http://localhost:3000/api/products";
+interface Branch {
+  id: string;
+  branch_name: string;
+}
 
 export function ProductsManager() {
-  const [products, setProducts] = useState<Product[]>([]);
+  const [selectedBranchId, setSelectedBranchId] = useState<string>("");
+  const [branches, setBranches] = useState<Branch[]>([]);
+  const [inventory, setInventory] = useState<InventoryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [isAdding, setIsAdding] = useState(false);
-  const [editForm, setEditForm] = useState({
-    name: "",
-    price: 0,
-    is_grilled: false,
-  });
+  const [editForm, setEditForm] = useState({ price: 0, stock: 0 });
   const [newProduct, setNewProduct] = useState({
     name: "",
     price: 0,
     is_grilled: false,
+    stock: 0,
   });
+  const config = AppConfig.getInstance();
 
   useEffect(() => {
-    fetchProducts();
+    const fetchBranches = async () => {
+      try {
+        const res = await fetch(`${config.baseUrl}/management/branches`);
+        const data = await res.json();
+        setBranches(data);
+      } catch (err) {
+        console.error("Failed to load branches:", err);
+      }
+    };
+    fetchBranches();
   }, []);
 
-  const fetchProducts = async () => {
+  const fetchBranchInventory = async (branchId: string) => {
+    if (!branchId) return;
+    setLoading(true);
     try {
-      setLoading(true);
-      const res = await fetch(API_URL);
-      if (!res.ok) throw new Error("Failed to fetch");
+      const res = await fetch(`${config.baseUrl}/products/branch/${branchId}`);
       const data = await res.json();
-      setProducts(data);
+      setInventory(data);
     } catch (err) {
-      console.error("Error loading products:", err);
+      console.error("Error loading inventory:", err);
     } finally {
       setLoading(false);
     }
   };
 
+  useEffect(() => {
+    fetchBranchInventory(selectedBranchId);
+  }, [selectedBranchId]);
+
   const addProduct = async () => {
-    if (!newProduct.name || newProduct.price <= 0) {
-      alert("Please enter a valid product name and price");
-      return;
-    }
+    if (!selectedBranchId) return alert("Please select a branch first");
+    if (!newProduct.name || newProduct.price <= 0) return alert("Invalid inputs");
 
     try {
-      const res = await fetch(API_URL, {
+      const res = await fetch(`${config.baseUrl}/products/branch-assign`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           product_name: newProduct.name,
-          product_price: newProduct.price,
+          branch_price: newProduct.price,
           is_grilled: newProduct.is_grilled,
+          branchId: selectedBranchId,
+          initial_stock: newProduct.stock,
         }),
       });
 
       if (res.ok) {
-        await fetchProducts();
-        setNewProduct({ name: "", price: 0, is_grilled: false });
+        await fetchBranchInventory(selectedBranchId);
+        setNewProduct({ name: "", price: 0, is_grilled: false, stock: 0 });
         setIsAdding(false);
       }
     } catch (err) {
-      alert("Failed to save product to database.");
+      alert("Failed to save product.");
     }
   };
 
-  const startEdit = (product: Product) => {
-    setEditingId(product.id);
+  const startEdit = (item: InventoryItem) => {
+    setEditingId(item.id);
     setEditForm({
-      name: product.product_name,
-      price: product.product_price,
-      is_grilled: product.is_grilled,
+      price: item.branch_price,
+      stock: item.stock_quantity,
     });
   };
 
   const saveEdit = async (id: string) => {
     try {
-      const res = await fetch(`${API_URL}/${id}`, {
+      const res = await fetch(`${config.baseUrl}/products/inventory/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          product_name: editForm.name,
-          product_price: editForm.price,
-          is_grilled: editForm.is_grilled,
+          branch_price: editForm.price,
+          stock_quantity: editForm.stock,
         }),
       });
 
       if (res.ok) {
-        await fetchProducts();
+        await fetchBranchInventory(selectedBranchId);
         setEditingId(null);
       }
     } catch (err) {
-      alert("Failed to update product.");
+      alert("Failed to update inventory.");
     }
   };
 
@@ -118,20 +132,20 @@ export function ProductsManager() {
       return;
     }
 
-    if (!window.confirm("Are you sure you want to delete this product?"))
-      return;
+    if (!window.confirm("Are you sure you want to delete this product?")) return;
 
     try {
-      const res = await fetch(`${API_URL}/${id}`, {
-        method: "DELETE",
-        headers: {
-          "Content-Type": "application/json",
-        },
-      });
+      const res = await fetch(
+        `${config.baseUrl}/products/inventory/delete/${id}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+        }
+      );
 
       if (res.ok) {
         console.log("Delete successful");
-        setProducts((prev) => prev.filter((p) => p.id !== id));
+        setInventory((prev) => prev.filter((item) => item.id !== id));
       } else {
         const errorData = await res.json();
         alert(`Delete failed: ${errorData.error || "Server error"}`);
@@ -145,7 +159,7 @@ export function ProductsManager() {
   return (
     <div className="min-h-screen bg-gray-50 p-4 md:p-6">
       {/* Header */}
-      <div className="mb-6 flex items-center justify-between">
+      <div className="mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex items-center gap-4">
           <img
             src={logoImage}
@@ -154,227 +168,61 @@ export function ProductsManager() {
           />
           <div>
             <h1 className="text-2xl font-bold text-[#212121]">
-              Products & Pricing
+              Inventory & Pricing
             </h1>
             <p className="text-gray-600 font-medium">Manage branch menu items</p>
           </div>
         </div>
-        <button
-          onClick={() => setIsAdding(true)}
-          className="flex items-center gap-2 rounded-lg bg-[#D32F2F] px-6 py-3 text-white hover:bg-[#B71C1C] transition-colors shadow-md"
-        >
-          <Plus className="h-5 w-5" />
-          <span className="font-semibold">Add Product</span>
-        </button>
+
+        <div className="flex flex-wrap items-center gap-3">
+          <select
+            value={selectedBranchId}
+            onChange={(e) => setSelectedBranchId(e.target.value)}
+            className="p-3 border-2 border-gray-200 rounded-xl focus:border-[#D32F2F] outline-none font-bold text-sm bg-white shadow-sm"
+          >
+            <option value="">Select Branch</option>
+            {branches.map((b) => (
+              <option key={b.id} value={b.id}>
+                {b.branch_name}
+              </option>
+            ))}
+          </select>
+
+          <button
+            onClick={() => setIsAdding(true)}
+            disabled={!selectedBranchId}
+            className="flex items-center gap-2 rounded-xl bg-[#D32F2F] px-6 py-3 text-white hover:bg-[#B71C1C] disabled:opacity-50 transition-all shadow-md"
+          >
+            <Plus className="h-5 w-5" />
+            <span className="font-bold">Add Product</span>
+          </button>
+        </div>
       </div>
 
       {/* Add New Product Form */}
       {isAdding && (
-        <div className="mb-6 rounded-lg bg-white p-6 shadow-md border-2 border-[#D32F2F] animate-in fade-in slide-in-from-top-4">
-          <h2 className="text-lg font-bold text-[#212121] mb-4">
-            Add New Product
-          </h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-600 mb-2">
-                Product Name
-              </label>
-              <input
-                type="text"
-                value={newProduct.name}
-                onChange={(e) =>
-                  setNewProduct({ ...newProduct, name: e.target.value })
-                }
-                placeholder="e.g., Spicy Whole Manok"
-                className="w-full px-4 py-2 border-2 border-gray-200 rounded-lg focus:border-[#D32F2F] focus:outline-none"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-600 mb-2">
-                Price (₱)
-              </label>
-              <input
-                type="number"
-                value={newProduct.price || ""}
-                onChange={(e) =>
-                  setNewProduct({
-                    ...newProduct,
-                    price: parseFloat(e.target.value),
-                  })
-                }
-                placeholder="0.00"
-                className="w-full px-4 py-2 border-2 border-gray-200 rounded-lg focus:border-[#D32F2F] focus:outline-none"
-              />
-            </div>
-          </div>
-          <div className="flex items-center gap-2 mt-4">
-            <input
-              type="checkbox"
-              id="is_grilled_new"
-              checked={newProduct.is_grilled}
-              onChange={(e) =>
-                setNewProduct({ ...newProduct, is_grilled: e.target.checked })
-              }
-              className="w-4 h-4 accent-[#D32F2F]"
-            />
-            <label
-              htmlFor="is_grilled_new"
-              className="text-sm font-medium text-gray-700"
-            >
-              Requires Grilling
-            </label>
-          </div>
-          <div className="flex gap-3">
-            <button
-              onClick={addProduct}
-              className="flex items-center gap-2 px-6 py-2 rounded-lg bg-[#D32F2F] text-white hover:bg-[#B71C1C]"
-            >
-              <Save className="h-4 w-4" />
-              <span>Save Product</span>
-            </button>
-            <button
-              onClick={() => {
-                setIsAdding(false);
-                setNewProduct({ name: "", price: 0, is_grilled: false });
-              }}
-              className="flex items-center gap-2 px-6 py-2 rounded-lg bg-gray-200 text-gray-700 hover:bg-gray-300"
-            >
-              <X className="h-4 w-4" />
-              <span>Cancel</span>
-            </button>
-          </div>
-        </div>
+        <AddProductForm
+          branch={branches.find((b) => b.id === selectedBranchId)}
+          newProduct={newProduct}
+          onNewProductChange={setNewProduct}
+          onSave={addProduct}
+          onCancel={() => setIsAdding(false)}
+        />
       )}
 
-      {/* Products List */}
-      <div className="rounded-lg bg-white p-6 shadow-md min-h-[400px]">
-        <h2 className="text-lg font-bold text-[#212121] mb-4">
-          Current Menu Items
-        </h2>
-
-        {loading ? (
-          <div className="flex flex-col items-center justify-center py-20 text-gray-400">
-            <Loader2 className="h-8 w-8 animate-spin mb-2" />
-            <p>Loading products from Supabase...</p>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {products.map((product, index) => {
-              const colorSet = UI_COLORS[index % UI_COLORS.length];
-              return (
-                <div
-                  key={product.id}
-                  className="flex items-center justify-between p-4 border-2 border-gray-200 rounded-lg hover:border-gray-300 transition-colors bg-white"
-                >
-                  {editingId === product.id ? (
-                    <>
-                      <div className="flex items-center gap-2 mt-2 col-span-full">
-                        <input
-                          type="checkbox"
-                          checked={editForm.is_grilled}
-                          onChange={(e) =>
-                            setEditForm({
-                              ...editForm,
-                              is_grilled: e.target.checked,
-                            })
-                          }
-                          className="w-4 h-4 accent-[#D32F2F]"
-                        />
-                        <span className="text-xs text-gray-500">
-                          Grilled Item
-                        </span>
-                      </div>
-                      <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-4 mr-4">
-                        <input
-                          type="text"
-                          value={editForm.name}
-                          onChange={(e) =>
-                            setEditForm({ ...editForm, name: e.target.value })
-                          }
-                          className="px-4 py-2 border-2 border-[#D32F2F] rounded-lg focus:outline-none"
-                        />
-                        <input
-                          type="number"
-                          value={editForm.price}
-                          onChange={(e) =>
-                            setEditForm({
-                              ...editForm,
-                              price: parseFloat(e.target.value),
-                            })
-                          }
-                          className="px-4 py-2 border-2 border-[#D32F2F] rounded-lg focus:outline-none"
-                        />
-                      </div>
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => saveEdit(product.id)}
-                          className="p-2 rounded-lg bg-[#4CAF50] text-white hover:bg-[#388E3C]"
-                          title="Save"
-                        >
-                          <Save className="h-5 w-5" />
-                        </button>
-                        <button
-                          onClick={() => setEditingId(null)}
-                          className="p-2 rounded-lg bg-gray-200 text-gray-700 hover:bg-gray-300"
-                          title="Cancel"
-                        >
-                          <X className="h-5 w-5" />
-                        </button>
-                      </div>
-                    </>
-                  ) : (
-                    <>
-                      <div className="flex items-center gap-4 flex-1">
-                        <div
-                          className={`w-3 h-12 rounded-full ${colorSet.color}`}
-                        />
-                        <div>
-                          <p className="text-lg font-bold text-[#212121]">
-                            {product.product_name}
-                          </p>
-                          <p className="text-gray-600 font-medium">
-                            ₱{Number(product.product_price).toFixed(2)}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => startEdit(product)}
-                          className="p-2 rounded-lg bg-[#FFC107] text-white hover:bg-[#FFA000] transition-colors"
-                          title="Edit"
-                        >
-                          <Edit2 className="h-5 w-5" />
-                        </button>
-                        <button
-                          onClick={() => deleteProduct(product.id)}
-                          className="p-2 rounded-lg bg-gray-100 text-[#D32F2F] hover:bg-red-50 transition-colors"
-                          title="Delete"
-                        >
-                          <Trash2 className="h-5 w-5" />
-                        </button>
-                      </div>
-                    </>
-                  )}
-                </div>
-              );
-            })}
-
-            {products.length === 0 && !loading && (
-              <div className="text-center py-20 border-2 border-dashed border-gray-200 rounded-xl">
-                <p className="text-gray-400">No products found in database.</p>
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-
-      {/* Info Box */}
-      <div className="mt-6 rounded-lg bg-[#FFC107]/10 border-l-4 border-[#FFC107] p-4">
-        <p className="text-sm text-[#212121]">
-          <strong>Cloud Sync Active:</strong> Changes made here will immediately
-          reflect on all staff POS screens on all branches.
-        </p>
-      </div>
+      {/* Inventory List */}
+      <InventoryList
+        selectedBranchId={selectedBranchId}
+        loading={loading}
+        inventory={inventory}
+        editingId={editingId}
+        editForm={editForm}
+        onStartEdit={startEdit}
+        onSaveEdit={saveEdit}
+        onCancelEdit={() => setEditingId(null)}
+        onEditFormChange={setEditForm}
+        onDelete={deleteProduct}
+      />
     </div>
   );
 }
